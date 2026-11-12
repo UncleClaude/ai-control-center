@@ -7,6 +7,8 @@ import { guardNavigation } from './navigation'
 import { preloadPath } from './paths'
 import { prepareSession } from './sessions'
 
+export const CARD_RADIUS = 14
+
 export interface AiView {
   ai: AiConfig
   view: WebContentsView
@@ -25,9 +27,15 @@ export class ViewManager extends EventEmitter<{ changed: [] }> {
   constructor(
     private readonly win: BaseWindow,
     readonly ais: AiConfig[],
+    private background: string,
   ) {
     super()
     for (const ai of ais) this.create(ai)
+  }
+
+  setBackground(color: string): void {
+    this.background = color
+    for (const e of this.views.values()) e.view.setBackgroundColor(color)
   }
 
   private create(ai: AiConfig): void {
@@ -44,6 +52,9 @@ export class ViewManager extends EventEmitter<{ changed: [] }> {
       },
     })
     view.setVisible(false)
+    view.setBackgroundColor(this.background)
+    // Matches the shell's content card (--card-radius).
+    view.setBorderRadius(CARD_RADIUS)
     this.win.contentView.addChildView(view)
     const entry: AiView = { ai, view, loaded: false }
     this.views.set(ai.id, entry)

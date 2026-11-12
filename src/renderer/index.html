@@ -9,11 +9,46 @@
     <title>AI Control Center</title>
   </head>
   <body>
-    <div class="app">
-      <nav class="rail" aria-label="Intelligences artificielles">
+    <div class="window" id="window">
+      <div class="backdrop" aria-hidden="true">
+        <div class="aurora aurora-a"></div>
+        <div class="aurora aurora-b"></div>
+      </div>
+
+      <header class="titlebar">
+        <div class="titlebar-leading"></div>
+        <div class="titlebar-center">
+          <div class="nav-pill glass">
+            <button class="icon-btn" id="nav-back" type="button" aria-label="Précédent"></button>
+            <button class="icon-btn" id="nav-forward" type="button" aria-label="Suivant"></button>
+            <div class="title" id="title">
+              <img class="title-icon" id="title-icon" alt="" draggable="false" />
+              <span class="title-text" id="title-text"></span>
+              <span class="title-spinner" aria-hidden="true"></span>
+            </div>
+            <button class="icon-btn" id="nav-reload" type="button" aria-label="Recharger"></button>
+          </div>
+        </div>
+        <div class="titlebar-trailing">
+          <div class="window-controls" id="window-controls">
+            <button class="wc-btn" id="wc-min" type="button" aria-label="Réduire"></button>
+            <button class="wc-btn" id="wc-max" type="button" aria-label="Agrandir"></button>
+            <button class="wc-btn wc-close" id="wc-close" type="button" aria-label="Fermer"></button>
+          </div>
+        </div>
+      </header>
+
+      <nav class="rail glass" aria-label="Intelligences artificielles">
+        <div class="rail-indicator" id="rail-indicator" aria-hidden="true"></div>
         <ul class="rail-list" id="rail-list"></ul>
+        <div class="rail-footer">
+          <button class="icon-btn rail-toggle" id="rail-toggle" type="button" aria-label="Afficher les noms"></button>
+        </div>
       </nav>
-      <main class="content" id="content"></main>
+
+      <main class="stage">
+        <div class="card" id="content"></div>
+      </main>
     </div>
     <script type="module" src="./src/main.ts"></script>
   </body>

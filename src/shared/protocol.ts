@@ -3,16 +3,23 @@
 export type Platform = 'darwin' | 'linux' | 'win32'
 export type NavAction = 'back' | 'forward' | 'reload'
 export type WindowAction = 'minimize' | 'maximize' | 'close'
+export type GlassMode = 'vibrancy' | 'blur' | 'tint' | 'solid'
+export type GlassPreference = 'auto' | 'glass' | 'solid'
 
 export interface AiPublic {
   id: string
   name: string
   /** data: URL, safe for the shell CSP. */
   icon: string
+  accent: string
 }
 
 export interface ShellState {
   platform: Platform
+  glass: GlassMode
+  maximized: boolean
+  fullscreen: boolean
+  focused: boolean
   ais: AiPublic[]
   activeId: string | null
   loading: Record<string, boolean>

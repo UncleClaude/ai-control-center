@@ -5,24 +5,42 @@
       "name": "Muse",
       "url": "https://muse.ai",
       "icon": "muse.svg",
+      "accent": "#0064E0",
       "adapter": "muse",
-      "allowedDomains": ["muse.ai", "meta.ai", "meta.com", "facebook.com", "instagram.com"]
+      "allowedDomains": [
+        "muse.ai",
+        "meta.ai",
+        "meta.com",
+        "facebook.com",
+        "instagram.com"
+      ]
     },
     {
       "id": "claude",
       "name": "Claude",
       "url": "https://claude.ai",
       "icon": "claude.svg",
+      "accent": "#D97757",
       "adapter": "claude",
-      "allowedDomains": ["claude.ai", "claude.com", "anthropic.com"]
+      "allowedDomains": [
+        "claude.ai",
+        "claude.com",
+        "anthropic.com"
+      ]
     },
     {
       "id": "chatgpt",
       "name": "ChatGPT",
       "url": "https://chatgpt.com",
       "icon": "chatgpt.svg",
+      "accent": "#10A37F",
       "adapter": "chatgpt",
-      "allowedDomains": ["chatgpt.com", "openai.com", "oaistatic.com", "oaiusercontent.com"]
+      "allowedDomains": [
+        "chatgpt.com",
+        "openai.com",
+        "oaistatic.com",
+        "oaiusercontent.com"
+      ]
     }
   ]
 }

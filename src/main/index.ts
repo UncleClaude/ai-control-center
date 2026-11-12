@@ -1,13 +1,15 @@
 import { join } from 'node:path'
-import { app, BaseWindow, ipcMain, WebContentsView, type IpcMainEvent } from 'electron'
+import { app, type BaseWindow, ipcMain, nativeTheme, WebContentsView, type IpcMainEvent } from 'electron'
 import { z } from 'zod'
 import { IPC, type Platform, type ShellState, type SiteRole } from '../shared/protocol'
 import { loadAiConfig } from './config'
+import { detectGlass, type GlassInfo } from './glass'
 import { installMenu } from './menu'
 import { preloadPath } from './paths'
 import { chromeMajor, chromeUserAgent, firefoxIdentity } from './sessions'
 import { attachShortcuts, type ShortcutHandlers } from './shortcuts'
 import { ViewManager } from './views'
+import { createMainWindow, siteBackground } from './window'
 
 // Stable, space-free profile directory: ~/.config/ai-control-center, ~/Library/Application Support/ai-control-center
 app.setPath('userData', join(app.getPath('appData'), 'ai-control-center'))
@@ -16,6 +18,7 @@ app.userAgentFallback = chromeUserAgent()
 let win: BaseWindow | null = null
 let shellView: WebContentsView | null = null
 let views: ViewManager | null = null
+let glass: GlassInfo
 
 function shellState(): ShellState {
   const loading: Record<string, boolean> = {}
@@ -23,7 +26,11 @@ function shellState(): ShellState {
   const history = views?.active?.view.webContents.navigationHistory
   return {
     platform: process.platform as Platform,
-    ais: (views?.ais ?? []).map((ai) => ({ id: ai.id, name: ai.name, icon: ai.iconDataUrl })),
+    glass: glass.mode,
+    maximized: win?.isMaximized() ?? false,
+    fullscreen: win?.isFullScreen() ?? false,
+    focused: win?.isFocused() ?? false,
+    ais: (views?.ais ?? []).map((ai) => ({ id: ai.id, name: ai.name, icon: ai.iconDataUrl, accent: ai.accent })),
     activeId: views?.activeId ?? null,
     loading,
     badges: {},
@@ -73,23 +80,21 @@ function registerIpc(): void {
 
 function createWindow(): void {
   const ais = loadAiConfig()
-  win = new BaseWindow({
-    width: 1280,
-    height: 840,
-    minWidth: 720,
-    minHeight: 480,
-    title: 'AI Control Center',
-    backgroundColor: '#1c1d22',
-    show: false,
-  })
+  const pref = process.env.AICC_GLASS
+  glass = detectGlass(pref === 'glass' || pref === 'solid' ? pref : 'auto')
+  console.info(`[glass] mode ${glass.mode} (${glass.reason})`)
+  const window = createMainWindow(glass)
+  win = window
 
   shellView = new WebContentsView({
     webPreferences: { preload: preloadPath('shell'), sandbox: true, contextIsolation: true, nodeIntegration: false },
   })
-  // The shell is added first so it sits under the AI views; it draws the sidebar and reports
-  // where the content area is.
-  win.contentView.addChildView(shellView)
-  views = new ViewManager(win, ais)
+  // Transparent so the vibrancy / compositor blur shows through the shell's glass.
+  shellView.setBackgroundColor('#00000000')
+  // The shell is added first so it sits under the AI views; it draws the chrome and reports
+  // where the content card is.
+  window.contentView.addChildView(shellView)
+  views = new ViewManager(window, ais, siteBackground())
 
   const handlers: ShortcutHandlers = {
     selectIndex: (i) => views?.selectIndex(i),
@@ -106,8 +111,14 @@ function createWindow(): void {
     const { width, height } = win.getContentBounds()
     shellView.setBounds({ x: 0, y: 0, width, height })
   }
-  win.on('resize', layoutShell)
+  window.on('resize', layoutShell)
+  for (const ev of ['maximize', 'unmaximize', 'enter-full-screen', 'leave-full-screen', 'focus', 'blur'] as const) {
+    window.on(ev as 'focus', pushState)
+  }
   layoutShell()
+
+  const onTheme = () => views?.setBackground(siteBackground())
+  nativeTheme.on('updated', onTheme)
 
   shellView.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   shellView.webContents.on('will-navigate', (e) => e.preventDefault())
@@ -116,7 +127,8 @@ function createWindow(): void {
   shellView.webContents.once('did-finish-load', () => win?.show())
 
   views.start(null)
-  win.on('closed', () => {
+  window.on('closed', () => {
+    nativeTheme.off('updated', onTheme)
     win = null
     shellView = null
     views = null
