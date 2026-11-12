@@ -1,32 +1,59 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#2B3550"/>
-      <stop offset="1" stop-color="#11141F"/>
-    </linearGradient>
-    <radialGradient id="a" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#5B9BFF"/><stop offset="1" stop-color="#2F6BFF" stop-opacity="0"/></radialGradient>
-    <radialGradient id="b" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#FF9A6B"/><stop offset="1" stop-color="#E0663C" stop-opacity="0"/></radialGradient>
-    <radialGradient id="c" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#4FE0B0"/><stop offset="1" stop-color="#10A37F" stop-opacity="0"/></radialGradient>
-    <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.34"/>
-      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0.08"/>
-    </linearGradient>
-    <linearGradient id="rim" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.9"/>
-      <stop offset="0.5" stop-color="#FFFFFF" stop-opacity="0.15"/>
-      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0.5"/>
-    </linearGradient>
-  </defs>
-  <rect x="16" y="16" width="480" height="480" rx="112" fill="url(#bg)"/>
-  <circle cx="190" cy="200" r="150" fill="url(#a)"/>
-  <circle cx="330" cy="210" r="140" fill="url(#b)"/>
-  <circle cx="256" cy="340" r="150" fill="url(#c)"/>
-  <rect x="116" y="116" width="280" height="280" rx="78" fill="url(#glass)" stroke="url(#rim)" stroke-width="5"/>
-  <circle cx="176" cy="196" r="22" fill="#6AA6FF"/>
-  <circle cx="176" cy="256" r="22" fill="#FF9F73"/>
-  <circle cx="176" cy="316" r="22" fill="#5BE3B5"/>
-  <rect x="222" y="160" width="138" height="192" rx="30" fill="#FFFFFF" fill-opacity="0.88"/>
-  <rect x="246" y="196" width="78" height="12" rx="6" fill="#11141F" fill-opacity="0.35"/>
-  <rect x="246" y="222" width="90" height="12" rx="6" fill="#11141F" fill-opacity="0.22"/>
-  <rect x="246" y="248" width="60" height="12" rx="6" fill="#11141F" fill-opacity="0.22"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+<defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#262a37"/><stop offset=".55" stop-color="#14161d"/><stop offset="1" stop-color="#0a0b0f"/></linearGradient>
+  <radialGradient id="sheen" cx=".28" cy=".18" r=".75"><stop offset="0" stop-color="#fff" stop-opacity=".10"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+  <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".22"/><stop offset=".5" stop-color="#fff" stop-opacity=".04"/><stop offset="1" stop-color="#fff" stop-opacity=".12"/></linearGradient>
+  <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2c303c"/><stop offset="1" stop-color="#15171d"/></linearGradient>
+  <linearGradient id="tileRim" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".30"/><stop offset="1" stop-color="#fff" stop-opacity=".06"/></linearGradient>
+  <linearGradient id="hexFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#232733"/><stop offset="1" stop-color="#0f1116"/></linearGradient>
+  <linearGradient id="hexRim" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#E4E9F2"/><stop offset=".5" stop-color="#7d8aa3"/><stop offset="1" stop-color="#C9D2E2"/></linearGradient>
+  <linearGradient id="txt" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#c4cddd"/></linearGradient>
+  <radialGradient id="core" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#4f7dff" stop-opacity=".55"/><stop offset="1" stop-color="#4f7dff" stop-opacity="0"/></radialGradient>
+  <linearGradient id="museG" x1="133.245" y1="109.046" x2="24.9203" y2="-12.5565" gradientUnits="userSpaceOnUse"><stop offset=".25" stop-color="#2E9BFF"/><stop offset=".7" stop-color="#0A72F0"/><stop offset="1" stop-color="#1F55F0"/></linearGradient>
+  <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="14"/></filter>
+  <filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="22"/></filter>
+
+  <linearGradient id="arc-chatgpt" gradientUnits="userSpaceOnUse" x1="512.0" y1="250.0" x2="738.9" y2="643.0"><stop offset="0" stop-color="#D5DAE3"/><stop offset="1" stop-color="#D97757"/></linearGradient>
+  <linearGradient id="arc-claude" gradientUnits="userSpaceOnUse" x1="738.9" y1="643.0" x2="285.1" y2="643.0"><stop offset="0" stop-color="#D97757"/><stop offset="1" stop-color="#1A8CFF"/></linearGradient>
+  <linearGradient id="arc-muse" gradientUnits="userSpaceOnUse" x1="285.1" y1="643.0" x2="512.0" y2="250.0"><stop offset="0" stop-color="#1A8CFF"/><stop offset="1" stop-color="#D5DAE3"/></linearGradient>
+  <radialGradient id="glow-chatgpt" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#D5DAE3" stop-opacity=".45"/><stop offset="1" stop-color="#D5DAE3" stop-opacity="0"/></radialGradient>
+  <radialGradient id="glow-claude" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#D97757" stop-opacity=".45"/><stop offset="1" stop-color="#D97757" stop-opacity="0"/></radialGradient>
+  <radialGradient id="glow-muse" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#1A8CFF" stop-opacity=".45"/><stop offset="1" stop-color="#1A8CFF" stop-opacity="0"/></radialGradient>
+</defs>
+<rect x="100" y="100" width="824" height="824" rx="186" fill="url(#bg)"/>
+<rect x="100" y="100" width="824" height="824" rx="186" fill="url(#sheen)"/>
+<rect x="101.5" y="101.5" width="821" height="821" rx="184.5" fill="none" stroke="url(#rim)" stroke-width="3"/>
+<circle cx="512" cy="512" r="230" fill="url(#core)"/>
+<path d="M512.0 250.0 A262 262 0 0 1 738.9 643.0" fill="none" stroke="url(#arc-chatgpt)" stroke-width="13" stroke-linecap="round" opacity=".92"/>
+<path d="M738.9 643.0 A262 262 0 0 1 285.1 643.0" fill="none" stroke="url(#arc-claude)" stroke-width="13" stroke-linecap="round" opacity=".92"/>
+<path d="M285.1 643.0 A262 262 0 0 1 512.0 250.0" fill="none" stroke="url(#arc-muse)" stroke-width="13" stroke-linecap="round" opacity=".92"/>
+<line x1="512.0" y1="376.0" x2="512.0" y2="340.0" stroke="#D5DAE3" stroke-width="12" stroke-linecap="round" opacity=".85"/>
+<line x1="629.8" y1="580.0" x2="661.0" y2="598.0" stroke="#D97757" stroke-width="12" stroke-linecap="round" opacity=".85"/>
+<line x1="394.2" y1="580.0" x2="363.0" y2="598.0" stroke="#1A8CFF" stroke-width="12" stroke-linecap="round" opacity=".85"/>
+<polygon points="512.0,376.0 629.8,444.0 629.8,580.0 512.0,648.0 394.2,580.0 394.2,444.0" fill="url(#hexFill)" stroke="url(#hexRim)" stroke-width="12" stroke-linejoin="round"/>
+<polygon points="512.0,392.0 615.9,452.0 615.9,572.0 512.0,632.0 408.1,572.0 408.1,452.0" fill="none" stroke="#fff" stroke-opacity=".07" stroke-width="3" stroke-linejoin="round"/>
+<path d="M444.0 560.0 L477.0 464.0 L503.0 464.0 L536.0 560.0 L511.0 560.0 L504.0 538.0 L476.0 538.0 L469.0 560.0 Z M482.0 518.0 L498.0 518.0 L490.0 490.0 Z" fill="url(#txt)" fill-rule="evenodd"/>
+<rect x="552" y="464" width="26" height="96" rx="3" fill="url(#txt)"/>
+<g>
+<circle cx="512.0" cy="264.0" r="144" fill="url(#glow-chatgpt)"/>
+<rect x="418.0" y="172.0" width="188" height="188" rx="50" fill="#000" opacity=".55" filter="url(#shadow)"/>
+<rect x="412.0" y="150.0" width="200" height="200" rx="52" fill="url(#tile)"/>
+<rect x="413.5" y="151.5" width="197" height="197" rx="50.5" fill="none" stroke="url(#tileRim)" stroke-width="3"/>
+<g transform="translate(512.0 250.0) scale(.84)" fill="none" stroke="#F4F6FA" stroke-width="11"><rect x="-15" y="-42" width="90" height="44" rx="22" transform="rotate(0)"/><rect x="-15" y="-42" width="90" height="44" rx="22" transform="rotate(60)"/><rect x="-15" y="-42" width="90" height="44" rx="22" transform="rotate(120)"/><rect x="-15" y="-42" width="90" height="44" rx="22" transform="rotate(180)"/><rect x="-15" y="-42" width="90" height="44" rx="22" transform="rotate(240)"/><rect x="-15" y="-42" width="90" height="44" rx="22" transform="rotate(300)"/></g>
+</g>
+<g>
+<circle cx="738.9" cy="657.0" r="144" fill="url(#glow-claude)"/>
+<rect x="644.9" y="565.0" width="188" height="188" rx="50" fill="#000" opacity=".55" filter="url(#shadow)"/>
+<rect x="638.9" y="543.0" width="200" height="200" rx="52" fill="url(#tile)"/>
+<rect x="640.4" y="544.5" width="197" height="197" rx="50.5" fill="none" stroke="url(#tileRim)" stroke-width="3"/>
+<path d="M748.8 644.4 L802.3 651.9 M746.8 649.2 L779.9 675.0 M742.6 652.3 L762.9 702.3 M737.5 652.9 L731.7 694.5 M732.7 650.9 L699.5 693.4 M729.6 646.7 L690.7 662.5 M729.0 641.6 L675.5 634.1 M731.0 636.8 L697.9 611.0 M735.2 633.7 L714.9 583.7 M740.3 633.1 L746.1 591.5 M745.1 635.1 L778.3 592.6 M748.2 639.3 L787.1 623.5" stroke="#D97757" stroke-width="13" stroke-linecap="round" fill="none"/>
+<circle cx="738.9" cy="643.0" r="15" fill="#D97757"/>
+</g>
+<g>
+<circle cx="285.1" cy="657.0" r="144" fill="url(#glow-muse)"/>
+<rect x="191.1" y="565.0" width="188" height="188" rx="50" fill="#000" opacity=".55" filter="url(#shadow)"/>
+<rect x="185.1" y="543.0" width="200" height="200" rx="52" fill="url(#tile)"/>
+<rect x="186.6" y="544.5" width="197" height="197" rx="50.5" fill="none" stroke="url(#tileRim)" stroke-width="3"/>
+<g transform="translate(219.1 577.0) scale(1.32)"><path d="M24.6257 16.1214C28.2365 16.1214 30.8187 18.9408 30.8187 23.3643C30.8185 27.7868 30.1055 31.7765 28.9225 40.2466C28.0743 46.1813 26.62 55.2418 26.0132 59.0088C27.1782 56.7815 29.9074 51.5757 30.3914 50.5982C36.1081 39.061 42.0657 28.7544 43.7826 26.0254C46.0594 22.382 48.062 20.9229 51.1597 20.9229C52.7685 20.923 54.6826 21.7357 55.6315 22.819C56.9178 24.2895 57.1859 26.6602 57.1411 29.244C57.0738 33.2073 56.5599 39.5264 55.8553 46.5698C55.5416 49.7057 54.9365 56.1066 54.5288 60.4004C58.1883 53.8532 64.9609 41.8109 67.6921 37.6058C70.0727 33.9402 72.466 31.5797 75.6836 31.5796C78.4595 31.5796 81.8809 33.5416 81.6772 38.7573C81.3774 46.4556 80.2673 63.2232 79.7607 70.7479C83.1662 65.7913 87.6377 58.4543 89.3148 55.6966C91.0104 52.908 92.75 50.6542 95.3898 50.5778C98.0987 50.4995 99.913 52.341 99.9959 55.1839C100.078 58.0277 98.3835 61.2256 96.1344 64.856C93.6937 68.7957 90.9621 73.0123 87.6383 76.9491C84.3148 80.8856 81.2604 83.8782 76.5991 83.8786C72.4243 83.8786 69.4869 81.1043 69.283 76.0254C69.1768 73.364 69.6804 67.6405 70.0602 63.1673C70.5 57.9875 71.0315 52.9861 71.403 49.6786C67.7337 56.3979 60.0101 70.4676 56.5348 75.9603C53.1343 81.3339 51.4774 83.2269 47.8882 83.2275C44.2977 83.2275 42.7226 80.6416 42.6717 76.7497C42.6142 72.5285 45.7852 47.1821 46.8587 38.737C45.1183 42.4616 40.839 51.6056 38.1551 57.0435C35.5587 62.3055 31.204 71.3978 28.0436 76.6357C25.7668 80.4094 23.2092 83.2273 19.4173 83.2275C15.6252 83.2275 13.4847 80.6784 13.4847 76.5788C13.4847 72.4794 14.6716 65.6492 15.9465 57.1777C16.5839 53.0781 17.3108 48.6133 18.1315 43.8761C18.7324 40.448 19.7764 34.4169 20.4183 30.7129C17.502 35.2539 12.2536 43.4278 10.6567 45.8903C8.88113 48.6291 7.28747 50.626 4.64681 50.6266C1.7329 50.6266 0.000532901 48.3522 0 45.7113C0 43.0703 1.34323 41.0344 3.52376 37.4512C6.32403 32.8465 11.3578 26.57 14.1154 23.2747C17.3656 19.3912 20.6139 16.1219 24.6257 16.1214Z" fill="url(#museG)"/></g>
+</g>
 </svg>
