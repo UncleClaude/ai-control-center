@@ -13,7 +13,10 @@ function normalise(text: string): string {
 }
 
 /** Screen-reader labels and UI chrome that are not part of the answer. */
-const NOISE = '.sr-only, [class~="sr-only"], .visually-hidden, button, [role="toolbar"], [role="button"], svg, style, script'
+// Inline mentions are often <span role="button"> (ChatGPT entities): they are kept, only real
+// <button>s and toolbars are dropped.
+const NOISE =
+  '.sr-only, [class~="sr-only"], .visually-hidden, [data-find-omitted], [aria-hidden="true"], button, [role="toolbar"], svg, style, script'
 /** "ChatGPT said:", "Claude responded:"… prefixes some sites put in front of each message. */
 const SPEAKER = /^\s*[\p{L}\p{N} .'-]{1,30}\s(said|responded|says|wrote|a dit|a répondu|répond)\s*:\s*/iu
 const BLOCKS = 'p, li, h1, h2, h3, h4, h5, h6, pre, blockquote, tr, br, div'
@@ -26,9 +29,16 @@ function cleanText(el: Element): string {
   return normalise(clone.textContent ?? '').replace(SPEAKER, '')
 }
 
-/** Message text; when the matched element only holds a label, use its whole turn. */
-function textOf(el: Element | null | undefined): string {
+/**
+ * Message text: the adapter's answer blocks when it names them, else the whole message; when the
+ * matched element only holds a label, its whole turn.
+ */
+function textOf(el: Element | null | undefined, answer?: string[]): string {
   if (!el) return ''
+  for (const sel of answer ?? []) {
+    const parts = [...el.querySelectorAll(sel)].map(cleanText).filter(Boolean)
+    if (parts.length) return parts.join(' ')
+  }
   const own = cleanText(el)
   if (own.length >= 3) return own
   const turn = el.closest('[data-turn-key], [data-testid^="conversation-turn"], article') ?? el.parentElement
@@ -63,6 +73,7 @@ function endsWithQuestion(text: string): boolean {
  * needs-input = approval selectors / buttons, answer choices in the message, or a final question.
  */
 export function runAdapter(spec: AdapterSpec, emit: Emit, log: Log): void {
+  const answerText = (el: Element | null | undefined) => textOf(el, spec.messageText)
   let generating = false
   let viaFallback = false
   let stoppedAt = 0
@@ -107,7 +118,7 @@ export function runAdapter(spec: AdapterSpec, emit: Emit, log: Log): void {
   const keyFor = (msg: Element | null): string => {
     const count = spec.assistantMessage.reduce((n, s) => n || document.querySelectorAll(s).length, 0)
     const turn = msg?.closest('[data-turn-key]')?.getAttribute('data-turn-key') ?? ''
-    const print = msg ? fingerprint(textOf(msg)) : ''
+    const print = msg ? fingerprint(answerText(msg)) : ''
     return `${location.pathname}#${count}${turn ? `:${turn}` : ''}${print ? `~${print}` : ''}`
   }
 
@@ -123,7 +134,7 @@ export function runAdapter(spec: AdapterSpec, emit: Emit, log: Log): void {
   const needsInput = (msg: Element | null): boolean => {
     if (approvalVisible()) return true
     if (!msg) return false
-    const text = textOf(msg)
+    const text = answerText(msg)
     // Answer buttons count only alongside a question: sites also show follow-up suggestions.
     if (spec.choiceButtons && text.slice(-400).includes('?')) {
       const scope = msg.parentElement ?? msg
@@ -136,7 +147,7 @@ export function runAdapter(spec: AdapterSpec, emit: Emit, log: Log): void {
     generating = false
     const msg = lastAssistant()
     const wait = needsInput(msg)
-    const text = textOf(msg)
+    const text = answerText(msg)
     if (!msg) log('warn', `assistantMessage introuvable à la fin d'une réponse — essayés : ${spec.assistantMessage.join(' | ')}`)
     const key = keyFor(msg)
     if (wait) reportedActionKey = key
@@ -187,7 +198,7 @@ export function runAdapter(spec: AdapterSpec, emit: Emit, log: Log): void {
       const key = keyFor(msg)
       if (key !== reportedActionKey && approvalVisible()) {
         reportedActionKey = key
-        emit({ kind: 'needs-input', snippet: excerpt(textOf(msg), true), key, url: location.href })
+        emit({ kind: 'needs-input', snippet: excerpt(answerText(msg), true), key, url: location.href })
       }
     }
   }

@@ -3,7 +3,14 @@ import type { AdapterSpec } from './types'
 /** chatgpt.com — checked 2026-11 on the signed-in UI. */
 export const chatgpt: AdapterSpec = {
   name: 'chatgpt',
-  assistantMessage: ['[data-conversation-role="assistant"]', '[data-message-author-role="assistant"]'],
+  // data-conversation-role="assistant" sits on a screen-reader <h4> ("ChatGPT said:"); the answer
+  // itself is the markdown block next to it.
+  assistantMessage: [
+    '[data-markdown-text-style="assistant-message"]',
+    '[data-message-author-role="assistant"]',
+    '[data-conversation-role="assistant"]',
+  ],
+  messageText: ['[data-markdown-copy="contents"]', '.markdown'],
   generating: [
     '[data-conversation-role="assistant"][data-talvt-turn-state]:not([data-talvt-turn-state="complete"])',
     '[data-talvt-turn-state="streaming"]',

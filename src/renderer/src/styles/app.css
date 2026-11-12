@@ -394,39 +394,6 @@ img {
   transition-delay: 0.08s;
 }
 
-/* Badge: pops in with a spring. */
-.badge {
-  position: absolute;
-  top: -4px;
-  right: -5px;
-  min-width: 12px;
-  height: 12px;
-  padding: 0 3px;
-  border-radius: 999px;
-  background: var(--badge);
-  color: #fff;
-  font-size: 9.5px;
-  font-weight: 700;
-  line-height: 12px;
-  text-align: center;
-  box-shadow:
-    0 0 0 2px color-mix(in srgb, var(--glass-fill-strong) 100%, transparent),
-    0 2px 5px rgba(229, 53, 43, 0.45);
-  transform: scale(0);
-  transition: transform 0.25s var(--ease-out);
-}
-.badge:not(:empty) {
-  height: 16px;
-  min-width: 16px;
-  line-height: 16px;
-  top: -6px;
-  right: -7px;
-}
-.badge.visible {
-  transform: scale(1);
-  transition: transform 0.45s var(--ease-spring);
-}
-
 .rail-footer {
   margin-top: auto;
   padding-top: 8px;

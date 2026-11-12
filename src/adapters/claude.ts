@@ -4,6 +4,8 @@ import type { AdapterSpec } from './types'
 export const claude: AdapterSpec = {
   name: 'claude',
   assistantMessage: ['[data-testid="assistant-message"]', '.font-claude-response', '[data-is-streaming]'],
+  // Answer prose only: "Searched the web"-style tool rows are [data-cds="TurnStatus"].
+  messageText: ['[data-cds="Prose"]', '[data-perf-reply-text]', '.standard-markdown'],
   generating: [
     '[data-is-streaming="true"]',
     '[data-perf-row-streaming="true"]',

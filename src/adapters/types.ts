@@ -7,6 +7,11 @@ export interface AdapterSpec {
   name: string
   /** One assistant message (the last match is the latest message). */
   assistantMessage: string[]
+  /**
+   * Inside an assistant message: the element(s) holding the answer text (all matches are joined),
+   * so tool-status rows and labels stay out of the notification. Defaults to the whole message.
+   */
+  messageText?: string[]
   /** Present only while a response or agent run is in progress (stop button, streaming flag). */
   generating: string[]
   /**

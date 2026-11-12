@@ -102,10 +102,7 @@ function buildRail(s: ShellState): void {
     img.src = ai.icon
     img.alt = ''
     img.draggable = false
-    const badge = document.createElement('span')
-    badge.className = 'badge'
-    badge.setAttribute('aria-hidden', 'true')
-    iconWrap.append(img, badge)
+    iconWrap.append(img)
 
     const label = document.createElement('span')
     label.className = 'rail-label'
@@ -152,13 +149,10 @@ function render(s: ShellState): void {
     if (active) btn.setAttribute('aria-current', 'page')
     else btn.removeAttribute('aria-current')
     const count = s.badges[id] ?? 0
-    const badge = btn.querySelector<HTMLElement>('.badge')
-    if (badge) {
-      badge.textContent = count > 9 ? '9+' : count > 1 ? String(count) : ''
-      badge.classList.toggle('visible', count > 0)
-    }
     // Unread answer: the icon breathes until the AI is viewed.
     btn.classList.toggle('unread', count > 0)
+    const name = s.ais.find((a) => a.id === id)?.name ?? id
+    btn.setAttribute('aria-label', count > 0 ? `${name} — réponse non lue` : name)
   }
 
   const active = s.ais.find((a) => a.id === s.activeId)
