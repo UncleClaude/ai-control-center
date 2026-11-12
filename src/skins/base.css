@@ -1,0 +1,12 @@
+/* Shared, selector-free touches applied to every skinned site. */
+
+/* Thin, quiet scrollbars. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, currentColor 22%, transparent) transparent;
+}
+
+/* Text selection tinted with the AI's accent (set per site by --aicc-accent). */
+::selection {
+  background: color-mix(in srgb, var(--aicc-accent, #6e7bff) 32%, transparent);
+}

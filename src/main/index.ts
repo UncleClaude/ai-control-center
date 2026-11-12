@@ -8,6 +8,7 @@ import { installMenu } from './menu'
 import { preloadPath } from './paths'
 import { chromeMajor, chromeUserAgent, firefoxIdentity } from './sessions'
 import { attachShortcuts, type ShortcutHandlers } from './shortcuts'
+import { SkinManager } from './skins'
 import { store } from './store'
 import { AppTray } from './tray'
 import { ViewManager } from './views'
@@ -23,6 +24,7 @@ let win: BaseWindow | null = null
 let shellView: WebContentsView | null = null
 let views: ViewManager | null = null
 let tray: AppTray | null = null
+let skins: SkinManager | null = null
 let glass: GlassInfo
 let quitting = false
 let badges: Record<string, number> = {}
@@ -216,6 +218,12 @@ function createWindow(): void {
     if (!process.argv.includes('--hidden')) win?.show()
   })
 
+  skins = new SkinManager(
+    (id) => process.env.AICC_SKINS !== '0' && store.aiPrefs(id).skin,
+    (contents) => views?.fromContents(contents)?.ai,
+  )
+  for (const e of views.views.values()) skins.attach(e.view.webContents)
+
   const last = store.state.lastAiId
   views.start(last && ais.some((a) => a.id === last) ? last : null)
 
@@ -231,6 +239,8 @@ function createWindow(): void {
     nativeTheme.off('updated', onTheme)
     tray?.destroy()
     tray = null
+    skins?.dispose()
+    skins = null
     win = null
     shellView = null
     views = null

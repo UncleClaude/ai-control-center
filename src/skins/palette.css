@@ -1,0 +1,27 @@
+/*
+ * AI Control Center palette, shared by every site skin. Values echo the app chrome so a site reads
+ * as part of the same window. Sites pick light/dark themselves, so skins map their own dark/light
+ * selectors onto the --aicc-dark-* / --aicc-light-* sets.
+ */
+:root {
+  --aicc-dark-base: #17181d;
+  --aicc-dark-sidebar: #1b1c22;
+  --aicc-dark-raised: #22232a;
+  --aicc-dark-raised-hover: #2a2b33;
+  --aicc-dark-popover: #26272e;
+  --aicc-dark-hairline: rgba(255, 255, 255, 0.09);
+  --aicc-dark-highlight: rgba(255, 255, 255, 0.07);
+  --aicc-dark-shadow: 0 10px 30px rgba(0, 0, 0, 0.35), 0 2px 6px rgba(0, 0, 0, 0.22);
+
+  --aicc-light-base: #f7f8fb;
+  --aicc-light-sidebar: #eff1f6;
+  --aicc-light-raised: #ffffff;
+  --aicc-light-raised-hover: #f4f5f9;
+  --aicc-light-popover: #ffffff;
+  --aicc-light-hairline: rgba(16, 20, 40, 0.09);
+  --aicc-light-highlight: rgba(255, 255, 255, 0.95);
+  --aicc-light-shadow: 0 10px 30px rgba(24, 32, 64, 0.1), 0 2px 6px rgba(24, 32, 64, 0.06);
+
+  --aicc-radius-composer: 26px;
+  --aicc-radius-control: 999px;
+}

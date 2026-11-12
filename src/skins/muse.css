@@ -1,0 +1,33 @@
+/*
+ * Muse (muse.ai). Its design system exposes semantic variables on .dark / .light (Tailwind v4):
+ * re-pointing them is enough and survives most UI changes. If a variable disappears, the site simply
+ * keeps its own colour.
+ */
+:root {
+  --aicc-accent: #0064e0;
+}
+
+html.dark,
+.dark .dark-elevated {
+  --bg-primary: var(--aicc-dark-base);
+  --bg-secondary: var(--aicc-dark-base);
+  --chat-background: var(--aicc-dark-base);
+  --fill-primary: var(--aicc-dark-raised);
+  --fill-secondary: var(--aicc-dark-raised);
+  --fill-tertiary: var(--aicc-dark-raised-hover);
+  --fill-code-block: var(--aicc-dark-sidebar);
+  --fill-task-banner: var(--aicc-dark-raised);
+  --fill-secondary-elevated-sidebar: var(--aicc-dark-raised-hover);
+  --hatch-agent-bubble-bg: var(--aicc-dark-raised);
+  --fill-divider: var(--aicc-dark-hairline);
+}
+
+html:not(.dark),
+html.light {
+  --bg-primary: var(--aicc-light-base);
+  --bg-secondary: var(--aicc-light-base);
+  --chat-background: var(--aicc-light-base);
+  --fill-primary: var(--aicc-light-raised);
+  --fill-secondary: var(--aicc-light-raised);
+  --fill-divider: var(--aicc-light-hairline);
+}
