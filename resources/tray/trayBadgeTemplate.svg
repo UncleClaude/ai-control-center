@@ -1,8 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 18">
-  <mask id="m"><rect width="18" height="18" fill="#fff"/><circle cx="15" cy="3.5" r="4" fill="#000"/></mask><g mask="url(#m)"><rect x="1.25" y="2.25" width="15.5" height="13.5" rx="4" fill="none" stroke="#000" stroke-width="1.5"/>
-  <circle cx="5.2" cy="6" r="1.15" fill="#000"/>
-  <circle cx="5.2" cy="9" r="1.15" fill="#000"/>
-  <circle cx="5.2" cy="12" r="1.15" fill="#000"/>
-  <rect x="8" y="5" width="5.6" height="8" rx="1.6" fill="#000"/>
-</g>  <circle cx="15" cy="3.5" r="2.6" fill="#000"/>
+<mask id="m"><rect width="18" height="18" fill="#fff"/><circle cx="15" cy="3.5" r="4" fill="#000"/></mask>
+<g mask="url(#m)"><g transform="translate(9.0 9.0) scale(0.05735) translate(-512 -512)">
+  <polygon points="512.0,376.0 629.8,444.0 629.8,580.0 512.0,648.0 394.2,580.0 394.2,444.0" fill="none" stroke="#000" stroke-width="21.0" stroke-linejoin="round"/>
+  <path d="M444.0 560.0 L477.0 464.0 L503.0 464.0 L536.0 560.0 L511.0 560.0 L504.0 538.0 L476.0 538.0 L469.0 560.0 Z M482.0 518.0 L498.0 518.0 L490.0 490.0 Z" fill="#000" fill-rule="evenodd"/>
+  <rect x="552" y="464" width="26" height="96" rx="3" fill="#000"/>
+</g></g>
+<circle cx="15" cy="3.5" r="2.6" fill="#000"/>
 </svg>
