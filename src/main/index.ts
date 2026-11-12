@@ -5,6 +5,7 @@ import { IPC, type GlassPreference, type Platform, type ShellState, type SiteRol
 import { loadAiConfig } from './config'
 import { detectGlass, type GlassInfo } from './glass'
 import { installMenu } from './menu'
+import { NotificationHub } from './notifications'
 import { preloadPath } from './paths'
 import { chromeMajor, chromeUserAgent, firefoxIdentity } from './sessions'
 import { attachShortcuts, type ShortcutHandlers } from './shortcuts'
@@ -25,6 +26,7 @@ let shellView: WebContentsView | null = null
 let views: ViewManager | null = null
 let tray: AppTray | null = null
 let skins: SkinManager | null = null
+let hub: NotificationHub | null = null
 let glass: GlassInfo
 let quitting = false
 let badges: Record<string, number> = {}
@@ -75,6 +77,16 @@ function toggleWindow(): void {
   if (!win) return
   if (win.isVisible() && !win.isMinimized() && win.isFocused()) win.hide()
   else showWindow()
+}
+
+/** The user is looking at this AI right now. */
+function isViewing(aiId: string): boolean {
+  return !!win && win.isVisible() && !win.isMinimized() && win.isFocused() && views?.activeId === aiId
+}
+
+function markSeen(): void {
+  const id = views?.activeId
+  if (id && isViewing(id)) hub?.seen(id)
 }
 
 function quit(): void {
@@ -132,6 +144,35 @@ function registerIpc(): void {
     else if (a === 'maximize') (win.isMaximized() ? win.unmaximize() : win.maximize())
     else win.close()
   })
+  const AdapterEventSchema = z.object({
+    kind: z.enum(['generating', 'done', 'needs-input']),
+    snippet: z.string().max(400),
+    key: z.string().max(600),
+    url: z.string().max(2000),
+  })
+  const WebNotificationSchema = z.object({
+    id: z.string().max(40),
+    title: z.string().max(200),
+    body: z.string().max(500),
+    tag: z.string().max(120),
+  })
+  const aiOf = (e: { sender: Electron.WebContents }) => views?.fromContents(e.sender)?.ai
+  ipcMain.on(IPC.siteEvent, (e, payload) => {
+    const ai = aiOf(e)
+    const event = AdapterEventSchema.safeParse(payload)
+    if (ai && event.success) hub?.adapter(ai.id, event.data)
+  })
+  ipcMain.on(IPC.webNotification, (e, payload) => {
+    const ai = aiOf(e)
+    const n = WebNotificationSchema.safeParse(payload)
+    if (ai && n.success) hub?.web(ai.id, n.data)
+  })
+  ipcMain.on(IPC.siteLog, (e, level, message) => {
+    const ai = aiOf(e)
+    if (!ai || typeof message !== 'string') return
+    ;(level === 'warn' ? console.warn : console.info)(`[adapter:${ai.id}] ${message.slice(0, 600)}`)
+  })
+
   // Site preloads ask (synchronously, at startup) which AI they belong to.
   ipcMain.on(IPC.siteRole, (e: IpcMainEvent) => {
     const entry = views?.fromContents(e.sender)
@@ -182,6 +223,7 @@ function createWindow(): void {
   for (const e of views.views.values()) attachShortcuts(e.view.webContents, handlers)
   views.on('changed', () => {
     pushState()
+    markSeen()
     const id = views?.activeId
     if (id && id !== store.state.lastAiId) store.update((s) => (s.lastAiId = id))
   })
@@ -224,6 +266,27 @@ function createWindow(): void {
   )
   for (const e of views.views.values()) skins.attach(e.view.webContents)
 
+  hub = new NotificationHub({
+    ais,
+    prefs: (id) => store.aiPrefs(id),
+    isViewing,
+    open: (id, url) => {
+      showWindow(id)
+      const wc = views?.views.get(id)?.view.webContents
+      if (wc && url && url !== wc.getURL()) void wc.loadURL(url)
+    },
+    clickWeb: (id, webId) => views?.views.get(id)?.view.webContents.send(IPC.webNotificationClick, webId),
+    playSound: () => shellView?.webContents.send(IPC.playSound),
+  })
+  hub.on('badges', (counts) => {
+    badges = counts
+    pushState()
+    tray?.setBadges(counts)
+    app.setBadgeCount(Object.values(counts).reduce((a, b) => a + b, 0))
+  })
+  window.on('focus', markSeen)
+  window.on('show', markSeen)
+
   const last = store.state.lastAiId
   views.start(last && ais.some((a) => a.id === last) ? last : null)
 
@@ -241,6 +304,7 @@ function createWindow(): void {
     tray = null
     skins?.dispose()
     skins = null
+    hub = null
     win = null
     shellView = null
     views = null

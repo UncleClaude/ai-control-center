@@ -8,6 +8,11 @@ const api: ShellApi = {
     ipcRenderer.on(IPC.state, wrapped)
     return () => ipcRenderer.off(IPC.state, wrapped)
   },
+  onPlaySound: (listener) => {
+    const wrapped = () => listener()
+    ipcRenderer.on(IPC.playSound, wrapped)
+    return () => ipcRenderer.off(IPC.playSound, wrapped)
+  },
   select: (id) => ipcRenderer.send(IPC.select, id),
   nav: (action) => ipcRenderer.send(IPC.nav, action),
   setContentRect: (rect) => ipcRenderer.send(IPC.layout, rect),

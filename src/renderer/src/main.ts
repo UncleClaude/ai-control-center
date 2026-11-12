@@ -1,5 +1,6 @@
 import type { ShellState } from '../../shared/protocol'
 import { icons } from './icons'
+import { playChime } from './sound'
 import './styles/tokens.css'
 import './styles/app.css'
 
@@ -174,6 +175,7 @@ window.addEventListener('resize', () => {
 })
 
 api.onState(render)
+api.onPlaySound(playChime)
 void api.getState().then((s) => {
   if (s) render(s)
   reportRect()

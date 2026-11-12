@@ -43,11 +43,29 @@ export const IPC = {
   layout: 'shell:layout',
   windowControl: 'shell:window',
   siteRole: 'site:role',
+  /** site → main: adapter detection (AdapterEvent) */
+  siteEvent: 'site:event',
+  /** site → main: adapter diagnostics, printed in the terminal */
+  siteLog: 'site:log',
+  /** site → main: a notification the page itself tried to show */
+  webNotification: 'site:web-notification',
+  /** main → site: the native notification relaying a web one was clicked */
+  webNotificationClick: 'site:web-notification-click',
+  /** main → shell: play the notification chime */
+  playSound: 'shell:play-sound',
 } as const
+
+export interface WebNotificationPayload {
+  id: string
+  title: string
+  body: string
+  tag: string
+}
 
 export interface ShellApi {
   getState(): Promise<ShellState>
   onState(listener: (state: ShellState) => void): () => void
+  onPlaySound(listener: () => void): () => void
   select(id: string): void
   nav(action: NavAction): void
   setContentRect(rect: Rect): void

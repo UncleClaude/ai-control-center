@@ -22,7 +22,12 @@ const AiSchema = z.object({
 
 const ConfigSchema = z.object({ ais: z.array(AiSchema).min(1) })
 
-export type AiConfig = z.infer<typeof AiSchema> & { iconDataUrl: string; accent: string }
+export type AiConfig = z.infer<typeof AiSchema> & {
+  iconDataUrl: string
+  /** Raster icon for native notifications (they cannot render SVG); null = app icon. */
+  iconPng: string | null
+  accent: string
+}
 
 export function configFilePath(): string {
   return join(app.getPath('userData'), 'ais.json')
@@ -57,6 +62,7 @@ export function loadAiConfig(): AiConfig[] {
         // Configs written before a field existed fall back to the bundled default for that id.
         accent: ai.accent ?? builtIn.get(ai.id)?.accent ?? hashColor(ai.name),
         iconDataUrl: resolveIcon(ai.icon, ai.name, dirname(file)),
+        iconPng: resolvePng(ai.icon, dirname(file)),
       }
     })
 }
@@ -74,6 +80,14 @@ function resolveIcon(icon: string | undefined, name: string, configDir: string):
     console.warn(`[config] icône introuvable pour ${name} : ${icon}`)
   }
   return monogram(name)
+}
+
+/** PNG for notifications: the icon itself if raster, else a same-named .png next to the SVG. */
+function resolvePng(icon: string | undefined, configDir: string): string | null {
+  if (!icon || icon.startsWith('data:')) return null
+  const png = icon.replace(/\.svg$/i, '.png')
+  const candidates = isAbsolute(png) ? [png] : [join(configDir, png), resourcePath('icons', png)]
+  return candidates.find((p) => /\.(png|jpe?g)$/i.test(p) && existsSync(p)) ?? null
 }
 
 function nameHue(name: string): number {
