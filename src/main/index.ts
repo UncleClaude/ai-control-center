@@ -1,24 +1,33 @@
 import { join } from 'node:path'
-import { app, type BaseWindow, ipcMain, nativeTheme, WebContentsView, type IpcMainEvent } from 'electron'
+import { app, ipcMain, nativeTheme, screen, WebContentsView, type BaseWindow, type IpcMainEvent } from 'electron'
 import { z } from 'zod'
-import { IPC, type Platform, type ShellState, type SiteRole } from '../shared/protocol'
+import { IPC, type GlassPreference, type Platform, type ShellState, type SiteRole } from '../shared/protocol'
 import { loadAiConfig } from './config'
 import { detectGlass, type GlassInfo } from './glass'
 import { installMenu } from './menu'
 import { preloadPath } from './paths'
 import { chromeMajor, chromeUserAgent, firefoxIdentity } from './sessions'
 import { attachShortcuts, type ShortcutHandlers } from './shortcuts'
+import { store } from './store'
+import { AppTray } from './tray'
 import { ViewManager } from './views'
 import { createMainWindow, siteBackground } from './window'
 
 // Stable, space-free profile directory: ~/.config/ai-control-center, ~/Library/Application Support/ai-control-center
-app.setPath('userData', join(app.getPath('appData'), 'ai-control-center'))
+// AICC_PROFILE=<name> runs a separate profile (own sessions, own single-instance lock) for testing.
+const profile = process.env.AICC_PROFILE?.replace(/[^\w-]/g, '')
+app.setPath('userData', join(app.getPath('appData'), profile ? `ai-control-center-${profile}` : 'ai-control-center'))
 app.userAgentFallback = chromeUserAgent()
 
 let win: BaseWindow | null = null
 let shellView: WebContentsView | null = null
 let views: ViewManager | null = null
+let tray: AppTray | null = null
 let glass: GlassInfo
+let quitting = false
+let badges: Record<string, number> = {}
+
+// ---------- Shell state ----------
 
 function shellState(): ShellState {
   const loading: Record<string, boolean> = {}
@@ -33,7 +42,7 @@ function shellState(): ShellState {
     ais: (views?.ais ?? []).map((ai) => ({ id: ai.id, name: ai.name, icon: ai.iconDataUrl, accent: ai.accent })),
     activeId: views?.activeId ?? null,
     loading,
-    badges: {},
+    badges,
     canGoBack: history?.canGoBack() ?? false,
     canGoForward: history?.canGoForward() ?? false,
   }
@@ -48,6 +57,57 @@ function pushState(): void {
     if (shellView && !shellView.webContents.isDestroyed()) shellView.webContents.send(IPC.state, shellState())
   })
 }
+
+// ---------- Window visibility ----------
+
+function showWindow(aiId?: string): void {
+  if (!win) return
+  if (aiId) views?.select(aiId)
+  if (win.isMinimized()) win.restore()
+  win.show()
+  win.focus()
+  views?.active?.view.webContents.focus()
+}
+
+function toggleWindow(): void {
+  if (!win) return
+  if (win.isVisible() && !win.isMinimized() && win.isFocused()) win.hide()
+  else showWindow()
+}
+
+function quit(): void {
+  quitting = true
+  app.quit()
+}
+
+// ---------- Geometry persistence ----------
+
+function restoredBounds(): Partial<Electron.Rectangle> {
+  const w = store.state.window
+  const bounds: Partial<Electron.Rectangle> = { width: w.width, height: w.height }
+  // Positions only matter where the platform lets clients place windows (not Wayland).
+  if (w.x !== undefined && w.y !== undefined) {
+    const visible = screen.getAllDisplays().some(({ workArea: a }) =>
+      w.x! < a.x + a.width - 80 && w.x! + w.width > a.x + 80 && w.y! >= a.y - 10 && w.y! < a.y + a.height - 80,
+    )
+    if (visible) Object.assign(bounds, { x: w.x, y: w.y })
+  }
+  return bounds
+}
+
+function trackGeometry(window: BaseWindow): void {
+  const save = () => {
+    if (window.isDestroyed() || window.isFullScreen()) return
+    const maximized = window.isMaximized()
+    const b = window.getNormalBounds()
+    store.update((s) => {
+      s.window = { width: b.width, height: b.height, maximized, ...(process.env.WAYLAND_DISPLAY ? {} : { x: b.x, y: b.y }) }
+    })
+  }
+  for (const ev of ['resize', 'move', 'maximize', 'unmaximize'] as const) window.on(ev as 'resize', save)
+}
+
+// ---------- IPC ----------
 
 function fromShell(event: { sender: Electron.WebContents }): boolean {
   return !!shellView && event.sender === shellView.webContents
@@ -73,18 +133,31 @@ function registerIpc(): void {
   // Site preloads ask (synchronously, at startup) which AI they belong to.
   ipcMain.on(IPC.siteRole, (e: IpcMainEvent) => {
     const entry = views?.fromContents(e.sender)
-    const role: SiteRole = { aiId: entry?.ai.id ?? null, adapter: entry?.ai.adapter ?? null, chromeMajor, firefox: firefoxIdentity() }
+    const role: SiteRole = {
+      aiId: entry?.ai.id ?? null,
+      adapter: entry?.ai.adapter ?? null,
+      chromeMajor,
+      firefox: firefoxIdentity(),
+    }
     e.returnValue = role
   })
 }
 
+// ---------- Window ----------
+
+function glassPreference(): GlassPreference {
+  const env = process.env.AICC_GLASS
+  return env === 'glass' || env === 'solid' || env === 'auto' ? env : store.state.prefs.glass
+}
+
 function createWindow(): void {
   const ais = loadAiConfig()
-  const pref = process.env.AICC_GLASS
-  glass = detectGlass(pref === 'glass' || pref === 'solid' ? pref : 'auto')
+  glass = detectGlass(glassPreference())
   console.info(`[glass] mode ${glass.mode} (${glass.reason})`)
-  const window = createMainWindow(glass)
+  const window = createMainWindow(glass, restoredBounds())
   win = window
+  if (store.state.window.maximized) window.maximize()
+  trackGeometry(window)
 
   shellView = new WebContentsView({
     webPreferences: { preload: preloadPath('shell'), sandbox: true, contextIsolation: true, nodeIntegration: false },
@@ -100,11 +173,16 @@ function createWindow(): void {
     selectIndex: (i) => views?.selectIndex(i),
     nav: (a, ignoreCache) => views?.nav(a, ignoreCache),
     toggleDevTools: () => views?.toggleDevTools(),
+    quit,
   }
   installMenu(ais, handlers)
   attachShortcuts(shellView.webContents, handlers)
   for (const e of views.views.values()) attachShortcuts(e.view.webContents, handlers)
-  views.on('changed', pushState)
+  views.on('changed', () => {
+    pushState()
+    const id = views?.activeId
+    if (id && id !== store.state.lastAiId) store.update((s) => (s.lastAiId = id))
+  })
 
   const layoutShell = () => {
     if (!win || !shellView) return
@@ -117,6 +195,16 @@ function createWindow(): void {
   }
   layoutShell()
 
+  // Closing hides into the tray unless disabled (or we are really quitting).
+  window.on('close', (event) => {
+    if (quitting || !store.state.prefs.closeToTray) return
+    event.preventDefault()
+    if (process.platform === 'darwin' && window.isFullScreen()) {
+      window.once('leave-full-screen', () => window.hide())
+      window.setFullScreen(false)
+    } else window.hide()
+  })
+
   const onTheme = () => views?.setBackground(siteBackground())
   nativeTheme.on('updated', onTheme)
 
@@ -124,29 +212,49 @@ function createWindow(): void {
   shellView.webContents.on('will-navigate', (e) => e.preventDefault())
   if (!app.isPackaged && process.env.ELECTRON_RENDERER_URL) void shellView.webContents.loadURL(process.env.ELECTRON_RENDERER_URL)
   else void shellView.webContents.loadFile(join(__dirname, '../renderer/index.html'))
-  shellView.webContents.once('did-finish-load', () => win?.show())
+  shellView.webContents.once('did-finish-load', () => {
+    if (!process.argv.includes('--hidden')) win?.show()
+  })
 
-  views.start(null)
+  const last = store.state.lastAiId
+  views.start(last && ais.some((a) => a.id === last) ? last : null)
+
+  tray = new AppTray(ais, {
+    toggleWindow,
+    openAi: (id) => showWindow(id),
+    isCloseToTray: () => store.state.prefs.closeToTray,
+    setCloseToTray: (value) => store.update((s) => (s.prefs.closeToTray = value)),
+    quit,
+  })
+
   window.on('closed', () => {
     nativeTheme.off('updated', onTheme)
+    tray?.destroy()
+    tray = null
     win = null
     shellView = null
     views = null
   })
 }
 
+// ---------- App lifecycle ----------
+
 if (!app.requestSingleInstanceLock()) {
   app.quit()
 } else {
-  app.on('second-instance', () => {
-    if (!win) return
-    if (win.isMinimized()) win.restore()
-    win.show()
-    win.focus()
-  })
+  app.on('second-instance', () => showWindow())
   app.whenReady().then(() => {
+    store.load()
     registerIpc()
     createWindow()
   })
-  app.on('window-all-closed', () => app.quit())
+  // macOS: clicking the Dock icon brings the hidden window back.
+  app.on('activate', () => showWindow())
+  app.on('before-quit', () => {
+    quitting = true
+    store.flush()
+  })
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') app.quit()
+  })
 }

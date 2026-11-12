@@ -5,6 +5,7 @@ export interface ShortcutHandlers {
   selectIndex(index: number): void
   nav(action: NavAction, ignoreCache?: boolean): void
   toggleDevTools(): void
+  quit(): void
 }
 
 const isMac = process.platform === 'darwin'
@@ -27,6 +28,7 @@ export function attachShortcuts(contents: WebContents, h: ShortcutHandlers): voi
     else if (mod && (key === ']' || code === 'BracketRight')) h.nav('forward')
     else if (!isMac && input.alt && !mod && key === 'ArrowLeft') h.nav('back')
     else if (!isMac && input.alt && !mod && key === 'ArrowRight') h.nav('forward')
+    else if (!isMac && input.control && !input.shift && code === 'KeyQ') h.quit()
     else if (key === 'F5') h.nav('reload', input.control)
     else if (key === 'F12' || (mod && input.shift && code === 'KeyI') || (isMac && input.meta && input.alt && code === 'KeyI'))
       h.toggleDevTools()
