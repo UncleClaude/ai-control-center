@@ -11,6 +11,7 @@ const api: ShellApi = {
   select: (id) => ipcRenderer.send(IPC.select, id),
   nav: (action) => ipcRenderer.send(IPC.nav, action),
   setContentRect: (rect) => ipcRenderer.send(IPC.layout, rect),
+  windowControl: (action) => ipcRenderer.send(IPC.windowControl, action),
 }
 
 contextBridge.exposeInMainWorld('aicc', api)

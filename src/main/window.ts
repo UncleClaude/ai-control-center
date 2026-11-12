@@ -35,12 +35,10 @@ export function createMainWindow(glass: GlassInfo, bounds?: Partial<Electron.Rec
     })
   }
 
-  // Linux / Windows: native frame, so the title bar and window controls are the OS's own
-  // (KWin decoration with the user's theme and button layout, GNOME/Hyprland as configured).
+  // Linux / Windows: frameless, the shell draws the title bar and window controls.
   return new BaseWindow({
     ...common,
-    frame: true,
-    autoHideMenuBar: true,
+    frame: false,
     transparent: glass.transparent,
     backgroundColor: glass.transparent ? '#00000000' : solidBackground(),
     icon: resourcePath('icons', 'app.png'),

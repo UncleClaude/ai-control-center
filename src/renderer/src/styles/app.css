@@ -45,6 +45,15 @@ img {
 :root[data-glass='solid'] .window {
   background: var(--window-gradient);
 }
+/* Frameless transparent windows (Linux) draw their own rounded corners and edge. */
+:root[data-platform='linux'][data-glass='blur'] .window,
+:root[data-platform='linux'][data-glass='tint'] .window {
+  border-radius: var(--window-radius);
+  box-shadow: inset 0 0 0 1px var(--window-edge);
+}
+:root[data-maximized='true'] .window {
+  border-radius: 0 !important;
+}
 
 /* Soft accent glow behind the chrome. Gives the glass something to refract when the compositor
    does not blur, and shifts gently with the active AI. */
@@ -120,9 +129,6 @@ img {
 }
 .titlebar-leading {
   height: 100%;
-}
-:root:not([data-platform='darwin']) {
-  --titlebar-h: 44px;
 }
 :root[data-platform='darwin'] .titlebar-leading {
   width: 78px; /* traffic lights */
@@ -224,9 +230,65 @@ img {
   color: var(--text-faint);
 }
 .icon-btn:focus-visible,
-.rail-item:focus-visible {
+.rail-item:focus-visible,
+.wc-btn:focus-visible {
   outline: 2px solid color-mix(in srgb, var(--accent) 70%, white);
   outline-offset: 2px;
+}
+
+/* Window controls: macOS traffic lights, drawn by the shell on frameless Linux / Windows. */
+.titlebar-leading {
+  display: flex;
+  align-items: center;
+}
+.window-controls {
+  display: none;
+  gap: 8px;
+  padding-left: 8px;
+}
+:root:not([data-platform='darwin']) .window-controls {
+  display: flex;
+}
+.wc-btn {
+  display: grid;
+  place-items: center;
+  width: 13px;
+  height: 13px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: transparent;
+  box-shadow:
+    inset 0 0 0 0.5px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  transition:
+    background-color 0.2s var(--ease-out),
+    color 0.12s var(--ease-out),
+    filter 0.12s var(--ease-out);
+}
+.wc-btn svg {
+  width: 9px;
+  height: 9px;
+}
+.wc-close {
+  background: #ff5f57;
+}
+.wc-min {
+  background: #febc2e;
+}
+.wc-max {
+  background: #28c840;
+}
+/* Glyphs appear on all three when hovering the group, as on macOS. */
+.window-controls:hover .wc-btn {
+  color: rgba(0, 0, 0, 0.55);
+}
+.wc-btn:active {
+  filter: brightness(0.82);
+}
+/* Unfocused window: the lights keep their colour, just a little softer. */
+:root[data-focused='false'] .window-controls:not(:hover) .wc-btn {
+  filter: saturate(0.75) opacity(0.8);
 }
 
 /* ---------- Rail ---------- */
@@ -422,6 +484,9 @@ img {
   border-radius: var(--card-radius);
   background: color-mix(in srgb, var(--glass-fill-strong) 70%, transparent);
   box-shadow: var(--card-shadow);
+}
+:root[data-maximized='true'][data-platform='linux'] .stage {
+  padding-bottom: 8px;
 }
 
 @media (prefers-reduced-motion: reduce) {

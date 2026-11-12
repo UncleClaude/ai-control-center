@@ -2,6 +2,7 @@
 
 export type Platform = 'darwin' | 'linux' | 'win32'
 export type NavAction = 'back' | 'forward' | 'reload'
+export type WindowAction = 'minimize' | 'maximize' | 'close'
 export type GlassMode = 'vibrancy' | 'blur' | 'tint' | 'solid'
 export type GlassPreference = 'auto' | 'glass' | 'solid'
 
@@ -40,6 +41,7 @@ export const IPC = {
   select: 'shell:select',
   nav: 'shell:nav',
   layout: 'shell:layout',
+  windowControl: 'shell:window',
   siteRole: 'site:role',
 } as const
 
@@ -49,6 +51,7 @@ export interface ShellApi {
   select(id: string): void
   nav(action: NavAction): void
   setContentRect(rect: Rect): void
+  windowControl(action: WindowAction): void
 }
 
 /** What a site preload learns about the view it runs in. */

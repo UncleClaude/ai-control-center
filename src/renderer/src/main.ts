@@ -14,15 +14,26 @@ const titleText = $<HTMLSpanElement>('title-text')
 const backBtn = $<HTMLButtonElement>('nav-back')
 const forwardBtn = $<HTMLButtonElement>('nav-forward')
 const reloadBtn = $<HTMLButtonElement>('nav-reload')
+const maxBtn = $<HTMLButtonElement>('wc-max')
 const railToggle = $<HTMLButtonElement>('rail-toggle')
 
 backBtn.innerHTML = icons.back
 forwardBtn.innerHTML = icons.forward
 reloadBtn.innerHTML = icons.reload
+$('wc-min').innerHTML = icons.minimize
+$('wc-close').innerHTML = icons.close
 
 backBtn.addEventListener('click', () => api.nav('back'))
 forwardBtn.addEventListener('click', () => api.nav('forward'))
 reloadBtn.addEventListener('click', () => api.nav('reload'))
+$('wc-min').addEventListener('click', () => api.windowControl('minimize'))
+maxBtn.addEventListener('click', () => api.windowControl('maximize'))
+$('wc-close').addEventListener('click', () => api.windowControl('close'))
+// Double-click on empty title bar space toggles maximise, as on native windows.
+document.querySelector('.titlebar')?.addEventListener('dblclick', (e) => {
+  if ((e.target as HTMLElement).closest('button, .nav-pill')) return
+  if (state?.platform !== 'darwin') api.windowControl('maximize')
+})
 
 // Expanded rail (icons + names) is a per-machine convenience.
 const RAIL_KEY = 'aicc.railExpanded'
@@ -134,6 +145,8 @@ function render(s: ShellState): void {
   root.classList.toggle('is-loading', !!(s.activeId && s.loading[s.activeId]))
   backBtn.disabled = !s.canGoBack
   forwardBtn.disabled = !s.canGoForward
+  maxBtn.innerHTML = s.maximized ? icons.restore : icons.maximize
+  maxBtn.setAttribute('aria-label', s.maximized ? 'Restaurer' : 'Agrandir')
 
   if (first) {
     // No slide on first paint.
