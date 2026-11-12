@@ -43,7 +43,11 @@ img {
 }
 :root[data-glass='tint'] .window,
 :root[data-glass='solid'] .window {
-  background: var(--window-gradient);
+  background-color: var(--window-solid);
+  background-image: var(--window-sheen);
+  transition:
+    grid-template-columns 0.42s var(--ease-glide),
+    background-color 0.6s var(--ease-out);
 }
 /* Frameless transparent windows (Linux) draw their own rounded corners and edge. */
 :root[data-platform='linux'][data-glass='blur'] .window,

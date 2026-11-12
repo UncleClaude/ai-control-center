@@ -31,7 +31,11 @@
   --text-muted: rgba(20, 22, 30, 0.55);
   --text-faint: rgba(20, 22, 30, 0.32);
   --window-fill: rgba(244, 246, 251, 0.38);
-  --window-gradient: linear-gradient(160deg, rgba(246, 248, 252, 0.94), rgba(228, 233, 243, 0.96));
+  /* Without compositor blur (tint/solid) the window is opaque and tinted from the active AI's
+     accent, with the same mix as the site skins (src/skins/palette.css) so chrome and site read
+     as one surface. */
+  --window-solid: color-mix(in oklab, var(--accent) 11%, #eef0f4);
+  --window-sheen: linear-gradient(160deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0) 55%);
   --window-edge: rgba(255, 255, 255, 0.55);
   --aurora-opacity: 0.32;
   --glass-fill: rgba(255, 255, 255, 0.42);
@@ -53,7 +57,8 @@
     --text-muted: rgba(246, 247, 250, 0.58);
     --text-faint: rgba(246, 247, 250, 0.3);
     --window-fill: rgba(20, 21, 27, 0.42);
-    --window-gradient: linear-gradient(160deg, rgba(32, 34, 43, 0.93), rgba(17, 18, 23, 0.96));
+    --window-solid: color-mix(in oklab, var(--accent) 15%, #121318);
+    --window-sheen: linear-gradient(160deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0) 55%);
     --window-edge: rgba(255, 255, 255, 0.12);
     --aurora-opacity: 0.26;
     --glass-fill: rgba(255, 255, 255, 0.07);
