@@ -361,10 +361,21 @@ function createWindow(): void {
 
 // ---------- App lifecycle ----------
 
-if (!app.requestSingleInstanceLock()) {
-  app.quit()
-} else {
-  app.on('second-instance', () => showWindow())
+/**
+ * Single instance. A packaged app brings its existing window forward; in development a new
+ * `npm run dev` replaces the running instance (often hidden in the tray with stale code).
+ */
+const isDev = !app.isPackaged
+
+function startup(): void {
+  app.on('second-instance', (_event, _argv, _cwd, data) => {
+    if (isDev && (data as { replace?: boolean } | undefined)?.replace) {
+      console.info('[dev] remplacée par une nouvelle instance')
+      quit()
+      return
+    }
+    showWindow()
+  })
   app.whenReady().then(() => {
     store.load()
     registerIpc()
@@ -379,4 +390,22 @@ if (!app.requestSingleInstanceLock()) {
   app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit()
   })
+}
+
+if (app.requestSingleInstanceLock({ replace: isDev })) {
+  startup()
+} else if (isDev) {
+  // The running instance has been asked to quit: take over once its lock is released.
+  let tries = 0
+  const retry = () => {
+    if (app.requestSingleInstanceLock({ replace: false })) startup()
+    else if (++tries < 40) setTimeout(retry, 250)
+    else {
+      console.error("[dev] l'instance déjà ouverte ne s'est pas fermée : quittez-la (tray → Quitter)")
+      app.quit()
+    }
+  }
+  setTimeout(retry, 400)
+} else {
+  app.quit()
 }

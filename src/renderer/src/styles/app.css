@@ -740,18 +740,24 @@ img {
 /* ---------- Unread: breathing icon ---------- */
 
 .rail-item.unread .rail-icon {
-  animation: unread-breathe 2.6s ease-in-out infinite;
+  animation: unread-breathe 2s ease-in-out infinite;
 }
 .rail-item.unread .rail-icon img {
-  animation: unread-glow 2.6s ease-in-out infinite;
+  animation: unread-glow 2s ease-in-out infinite;
+}
+/* The ChatGPT accent is near-black: give dark accents a light halo so the glow stays visible. */
+.rail-item.unread {
+  --item-glow: color-mix(in srgb, var(--item-accent) 55%, white 45%);
 }
 @keyframes unread-breathe {
   0%,
   100% {
-    transform: scale(1);
+    transform: scale(0.96);
+    filter: brightness(0.92);
   }
   50% {
-    transform: scale(1.07);
+    transform: scale(1.1);
+    filter: brightness(1.12);
   }
 }
 @keyframes unread-glow {
@@ -764,8 +770,8 @@ img {
   50% {
     box-shadow:
       0 2px 6px rgba(0, 0, 0, 0.16),
-      0 0 0 3px color-mix(in srgb, var(--item-accent) 45%, transparent),
-      0 0 18px 4px color-mix(in srgb, var(--item-accent) 55%, transparent);
+      0 0 0 3px var(--item-glow),
+      0 0 26px 8px color-mix(in srgb, var(--item-glow) 80%, transparent);
   }
 }
 /* Hover keeps its own lift instead of fighting the animation. */
