@@ -20,7 +20,7 @@ jobs:
             target: --linux AppImage
             files: dist/*.AppImage
           - os: macos-latest
-            target: --mac dmg
+            target: --mac dmg --arm64 --x64
             files: dist/*.dmg
     runs-on: ${{ matrix.os }}
     steps:
@@ -62,7 +62,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           ls -la packages
-          gh release create "$GITHUB_REF_NAME" packages/* \
-            --repo "$GITHUB_REPOSITORY" \
-            --title "AI Control Center ${GITHUB_REF_NAME#v}" \
-            --generate-notes
+          # Re-running a tag updates its existing release instead of failing.
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" packages/* --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" packages/* \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "AI Control Center ${GITHUB_REF_NAME#v}" \
+              --generate-notes
+          fi
