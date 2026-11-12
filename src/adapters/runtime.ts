@@ -191,12 +191,23 @@ export function runAdapter(spec: AdapterSpec, emit: Emit, log: Log): void {
     window.setTimeout(healthCheck, HEALTH_DELAY_MS)
   }
 
+  const warned = new Set<string>()
   const healthCheck = () => {
     if (spec.ignorePaths?.test(location.pathname)) return
     const composer = first(spec.composer)
-    if (!composer) {
-      log('warn', `zone de saisie introuvable — sélecteurs essayés : ${spec.composer.join(' | ')}. L'interface du site a sans doute changé : mettez à jour src/adapters/${spec.name}.ts`)
-    } else noteFallback('composer', composer.index)
+    if (composer) {
+      noteFallback('composer', composer.index)
+      return
+    }
+    // No input at all = not a chat page (signed out, landing page): nothing to report. An input
+    // that our selectors miss means the site changed and this adapter needs updating.
+    const someInput = document.querySelector('textarea, [contenteditable="true"], [contenteditable=""]')
+    if (!someInput || warned.has('composer')) return
+    warned.add('composer')
+    log(
+      'warn',
+      `zone de saisie non reconnue — sélecteurs essayés : ${spec.composer.join(' | ')}. L'interface du site a sans doute changé : mettez à jour src/adapters/${spec.name}.ts`,
+    )
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true })
