@@ -16,7 +16,14 @@
       </div>
 
       <header class="titlebar">
-        <div class="titlebar-leading"></div>
+        <div class="titlebar-leading">
+          <!-- macOS-style window controls (frameless Linux/Windows; macOS has the native ones here) -->
+          <div class="window-controls" id="window-controls">
+            <button class="wc-btn wc-close" id="wc-close" type="button" aria-label="Fermer"></button>
+            <button class="wc-btn wc-min" id="wc-min" type="button" aria-label="Réduire"></button>
+            <button class="wc-btn wc-max" id="wc-max" type="button" aria-label="Agrandir"></button>
+          </div>
+        </div>
         <div class="titlebar-center">
           <div class="nav-pill glass">
             <button class="icon-btn" id="nav-back" type="button" aria-label="Précédent"></button>
@@ -29,13 +36,7 @@
             <button class="icon-btn" id="nav-reload" type="button" aria-label="Recharger"></button>
           </div>
         </div>
-        <div class="titlebar-trailing">
-          <div class="window-controls" id="window-controls">
-            <button class="wc-btn" id="wc-min" type="button" aria-label="Réduire"></button>
-            <button class="wc-btn" id="wc-max" type="button" aria-label="Agrandir"></button>
-            <button class="wc-btn wc-close" id="wc-close" type="button" aria-label="Fermer"></button>
-          </div>
-        </div>
+        <div class="titlebar-trailing"></div>
       </header>
 
       <nav class="rail glass" aria-label="Intelligences artificielles">
