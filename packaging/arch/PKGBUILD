@@ -40,7 +40,7 @@ build() {
   rm -rf stage && mkdir stage
   cp -r out package.json package-lock.json stage/
   (cd stage && npm ci --omit=dev --ignore-scripts --no-audit --no-fund && rm package-lock.json)
-  node node_modules/@electron/asar/bin/asar.mjs pack stage app.asar
+  node node_modules/@electron/asar/bin/asar.js pack stage app.asar
 }
 
 package() {
