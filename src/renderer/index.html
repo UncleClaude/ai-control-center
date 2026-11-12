@@ -2,11 +2,19 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'"
+    />
     <title>AI Control Center</title>
   </head>
   <body>
-    <div id="app">AI Control Center</div>
+    <div class="app">
+      <nav class="rail" aria-label="Intelligences artificielles">
+        <ul class="rail-list" id="rail-list"></ul>
+      </nav>
+      <main class="content" id="content"></main>
+    </div>
     <script type="module" src="./src/main.ts"></script>
   </body>
 </html>

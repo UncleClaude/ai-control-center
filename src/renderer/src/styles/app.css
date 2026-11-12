@@ -1,0 +1,46 @@
+:root {
+  color-scheme: light dark;
+  font-family: -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', 'Noto Sans', Ubuntu, Cantarell, sans-serif;
+}
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #1c1d22;
+  user-select: none;
+}
+.app {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  height: 100%;
+}
+.rail-list {
+  list-style: none;
+  margin: 0;
+  padding: 16px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.rail-item {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 14px;
+  background: none;
+  cursor: pointer;
+}
+.rail-item img {
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+}
+.rail-item.active {
+  border-color: #fff;
+}
+.content {
+  min-width: 0;
+}

@@ -11,6 +11,7 @@ export default defineConfig({
     // Sandboxed preloads cannot require() npm packages: bundle everything.
     build: {
       externalizeDeps: false,
+      isolatedEntries: true,
       rollupOptions: {
         input: {
           shell: resolve(__dirname, 'src/preload/shell.ts'),
