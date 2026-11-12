@@ -22,6 +22,10 @@
   --aicc-light-highlight: rgba(255, 255, 255, 0.95);
   --aicc-light-shadow: 0 10px 30px rgba(24, 32, 64, 0.1), 0 2px 6px rgba(24, 32, 64, 0.06);
 
-  --aicc-radius-composer: 26px;
-  --aicc-radius-control: 999px;
+  --aicc-radius-composer: 24px;
+  /* Composer: hairline + top highlight + soft lift, the glass "pill" look. */
+  --aicc-dark-composer-shadow: inset 0 0 0 1px var(--aicc-dark-hairline), inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 8px 28px rgba(0, 0, 0, 0.32);
+  --aicc-light-composer-shadow: inset 0 0 0 1px var(--aicc-light-hairline), inset 0 1px 0 #fff,
+    0 8px 28px rgba(24, 32, 64, 0.1);
 }

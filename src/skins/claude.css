@@ -1,4 +1,64 @@
-/* Claude (claude.ai): filled after inspecting the signed-in UI. */
+/*
+ * Claude (claude.ai). Mode lives on <html data-mode="dark|light|system">. Its design system (cds)
+ * exposes --cds-surface-* / --cds-page-bg and the frame uses --df-sidebar-bg / --df-bg-page.
+ * Variables are set with !important so they beat the site's own definitions regardless of order.
+ */
 :root {
   --aicc-accent: #d97757;
+}
+
+html[data-mode='dark'],
+html[data-mode='dark'] .cds-root {
+  --cds-page-bg: var(--aicc-dark-base) !important;
+  --df-bg-page: var(--aicc-dark-base) !important;
+  --cds-surface-0: var(--aicc-dark-base) !important;
+  --cds-surface-1: var(--aicc-dark-base) !important;
+  --cds-surface-2: var(--aicc-dark-raised) !important;
+  --cds-surface-3: var(--aicc-dark-raised) !important;
+  --cds-surface-panel: var(--aicc-dark-raised) !important;
+  --cds-surface-popover: var(--aicc-dark-popover) !important;
+  --df-sidebar-bg: var(--aicc-dark-sidebar) !important;
+  --aicc-composer-shadow: var(--aicc-dark-composer-shadow);
+}
+@media (prefers-color-scheme: dark) {
+  html[data-mode='system'],
+  html[data-mode='system'] .cds-root {
+    --cds-page-bg: var(--aicc-dark-base) !important;
+    --df-bg-page: var(--aicc-dark-base) !important;
+    --cds-surface-0: var(--aicc-dark-base) !important;
+    --cds-surface-1: var(--aicc-dark-base) !important;
+    --cds-surface-2: var(--aicc-dark-raised) !important;
+    --cds-surface-3: var(--aicc-dark-raised) !important;
+    --cds-surface-panel: var(--aicc-dark-raised) !important;
+    --cds-surface-popover: var(--aicc-dark-popover) !important;
+    --df-sidebar-bg: var(--aicc-dark-sidebar) !important;
+    --aicc-composer-shadow: var(--aicc-dark-composer-shadow);
+  }
+}
+
+html[data-mode='light'],
+html[data-mode='light'] .cds-root {
+  --cds-page-bg: var(--aicc-light-base) !important;
+  --df-bg-page: var(--aicc-light-base) !important;
+  --cds-surface-1: var(--aicc-light-base) !important;
+  --cds-surface-3: var(--aicc-light-raised) !important;
+  --df-sidebar-bg: var(--aicc-light-sidebar) !important;
+  --aicc-composer-shadow: var(--aicc-light-composer-shadow);
+}
+@media (prefers-color-scheme: light) {
+  html[data-mode='system'],
+  html[data-mode='system'] .cds-root {
+    --cds-page-bg: var(--aicc-light-base) !important;
+    --df-bg-page: var(--aicc-light-base) !important;
+    --cds-surface-1: var(--aicc-light-base) !important;
+    --cds-surface-3: var(--aicc-light-raised) !important;
+    --df-sidebar-bg: var(--aicc-light-sidebar) !important;
+    --aicc-composer-shadow: var(--aicc-light-composer-shadow);
+  }
+}
+
+/* Composer card: rounder, with the glass rim. */
+[data-composer-card-holder] .bg-surface-3 {
+  border-radius: var(--aicc-radius-composer) !important;
+  box-shadow: var(--aicc-composer-shadow) !important;
 }

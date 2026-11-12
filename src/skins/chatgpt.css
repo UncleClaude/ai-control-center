@@ -1,4 +1,57 @@
-/* ChatGPT (chatgpt.com): filled after inspecting the signed-in UI. */
+/*
+ * ChatGPT (chatgpt.com). Mode lives on <html data-theme="dark|light">. Surfaces come from the
+ * --color-surface* / --color-background-* tokens; the left panel reuses --color-surface, so it is
+ * re-scoped there to get its own tone. Variables use !important to beat the site's definitions
+ * (including appearance presets).
+ */
 :root {
   --aicc-accent: #10a37f;
+}
+
+html[data-theme='dark'] {
+  --color-surface: var(--aicc-dark-base) !important;
+  --color-surface-secondary: var(--aicc-dark-base) !important;
+  --color-surface-canvas: var(--aicc-dark-base) !important;
+  --color-surface-recovery: var(--aicc-dark-base) !important;
+  --color-token-main-surface-primary: var(--aicc-dark-base) !important;
+  --color-background-panel: var(--aicc-dark-base) !important;
+  --color-surface-elevated: var(--aicc-dark-raised) !important;
+  --color-surface-card: var(--aicc-dark-raised) !important;
+  --color-surface-tertiary: var(--aicc-dark-raised) !important;
+  --color-background-composer-surface: var(--aicc-dark-raised) !important;
+  --color-background-page-search: var(--aicc-dark-raised) !important;
+  --app-shell-sidebar-docked-background: var(--aicc-dark-sidebar) !important;
+  --app-shell-sidebar-divider: var(--aicc-dark-hairline) !important;
+  --aicc-sidebar: var(--aicc-dark-sidebar);
+  --aicc-composer-shadow: var(--aicc-dark-composer-shadow);
+}
+
+html[data-theme='light'] {
+  --color-surface: var(--aicc-light-base) !important;
+  --color-surface-secondary: var(--aicc-light-base) !important;
+  --color-token-main-surface-primary: var(--aicc-light-base) !important;
+  --color-background-composer-surface: var(--aicc-light-raised) !important;
+  --app-shell-sidebar-docked-background: var(--aicc-light-sidebar) !important;
+  --aicc-sidebar: var(--aicc-light-sidebar);
+  --aicc-composer-shadow: var(--aicc-light-composer-shadow);
+}
+
+/* Sidebar gets its own, slightly lifted tone. */
+html[data-theme] .app-shell-left-panel {
+  --color-surface: var(--aicc-sidebar) !important;
+  --color-surface-secondary: var(--aicc-sidebar) !important;
+}
+
+/* Composer surface: glass rim instead of the flat elevation. */
+html[data-theme] [data-composer-surface-overflow] {
+  --composer-layout-surface-shadow: var(--aicc-composer-shadow) !important;
+  --composer-layout-surface-background: var(--color-background-composer-surface) !important;
+}
+
+/* The page body is painted black by the preset behind the shell. */
+html[data-theme='dark'] body {
+  background-color: var(--aicc-dark-base) !important;
+}
+html[data-theme='light'] body {
+  background-color: var(--aicc-light-base) !important;
 }

@@ -9,25 +9,35 @@
 
 html.dark,
 .dark .dark-elevated {
-  --bg-primary: var(--aicc-dark-base);
-  --bg-secondary: var(--aicc-dark-base);
-  --chat-background: var(--aicc-dark-base);
-  --fill-primary: var(--aicc-dark-raised);
-  --fill-secondary: var(--aicc-dark-raised);
-  --fill-tertiary: var(--aicc-dark-raised-hover);
-  --fill-code-block: var(--aicc-dark-sidebar);
-  --fill-task-banner: var(--aicc-dark-raised);
-  --fill-secondary-elevated-sidebar: var(--aicc-dark-raised-hover);
-  --hatch-agent-bubble-bg: var(--aicc-dark-raised);
-  --fill-divider: var(--aicc-dark-hairline);
+  --bg-primary: var(--aicc-dark-base) !important;
+  --bg-secondary: var(--aicc-dark-base) !important;
+  --chat-background: var(--aicc-dark-base) !important;
+  --fill-primary: var(--aicc-dark-raised) !important;
+  --fill-secondary: var(--aicc-dark-raised) !important;
+  --fill-tertiary: var(--aicc-dark-raised-hover) !important;
+  --fill-code-block: var(--aicc-dark-sidebar) !important;
+  --fill-task-banner: var(--aicc-dark-raised) !important;
+  --fill-secondary-elevated-sidebar: var(--aicc-dark-raised-hover) !important;
+  --hatch-agent-bubble-bg: var(--aicc-dark-raised) !important;
+  --fill-divider: var(--aicc-dark-hairline) !important;
 }
 
 html:not(.dark),
 html.light {
-  --bg-primary: var(--aicc-light-base);
-  --bg-secondary: var(--aicc-light-base);
-  --chat-background: var(--aicc-light-base);
-  --fill-primary: var(--aicc-light-raised);
-  --fill-secondary: var(--aicc-light-raised);
-  --fill-divider: var(--aicc-light-hairline);
+  --bg-primary: var(--aicc-light-base) !important;
+  --bg-secondary: var(--aicc-light-base) !important;
+  --chat-background: var(--aicc-light-base) !important;
+  --fill-primary: var(--aicc-light-raised) !important;
+  --fill-secondary: var(--aicc-light-raised) !important;
+  --fill-divider: var(--aicc-light-hairline) !important;
+}
+
+/* Composer: solid raised surface with the glass rim (Muse uses a translucent blur fill). */
+html.dark [data-hatch-composer-chrome] {
+  background-color: var(--aicc-dark-raised) !important;
+  box-shadow: var(--aicc-dark-composer-shadow) !important;
+}
+html:not(.dark) [data-hatch-composer-chrome] {
+  background-color: var(--aicc-light-raised) !important;
+  box-shadow: var(--aicc-light-composer-shadow) !important;
 }
