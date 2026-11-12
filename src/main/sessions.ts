@@ -60,9 +60,16 @@ function hostOf(url: string | undefined): string {
 
 const brandsHeader = `"Chromium";v="${chromeMajor}", "Google Chrome";v="${chromeMajor}", "Not?A_Brand";v="99"`
 
-/** Permissions the AI sites need: voice mode, notifications, clipboard, fullscreen video. */
+/**
+ * Permissions the AI sites need: voice mode, notifications, clipboard, fullscreen video, and
+ * storage (persistent-storage keeps local data from being evicted; storage-access is used by
+ * embedded sign-in flows).
+ */
 const GRANTED = new Set([
   'notifications',
+  'persistent-storage',
+  'storage-access',
+  'top-level-storage-access',
   'media',
   'clipboard-read',
   'clipboard-sanitized-write',
