@@ -31,6 +31,7 @@ interface AiTrack {
 export interface HubDeps {
   ais: AiConfig[]
   prefs(aiId: string): AiPrefs
+  doNotDisturb(): boolean
   /** True when the user is looking at this AI (window focused, visible, AI active). */
   isViewing(aiId: string): boolean
   /** Bring the window up on this AI; optionally load the conversation URL. */
@@ -146,10 +147,14 @@ export class NotificationHub extends EventEmitter<{ badges: [Record<string, numb
       debug(aiId, 'skip (disabled for this AI)')
       return
     }
-    debug(aiId, 'notify', best.kind, best.source, web ? '(+web click)' : '')
-
     this.badges[aiId] = (this.badges[aiId] ?? 0) + 1
     this.emit('badges', this.badgeCounts)
+    // Do not disturb: the rail icon still breathes, but no popup and no chime.
+    if (this.deps.doNotDisturb()) {
+      debug(aiId, 'silent (do not disturb)', best.kind)
+      return
+    }
+    debug(aiId, 'notify', best.kind, best.source, web ? '(+web click)' : '')
     this.show(aiId, best, web)
     if (prefs.sound) this.deps.playSound()
   }

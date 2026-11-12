@@ -7,6 +7,8 @@ export interface ShortcutHandlers {
   toggleDevTools(): void
   quit(): void
   openSettings(): void
+  /** +1 / -1 step, 0 = reset. */
+  zoom(step: 1 | -1 | 0): void
 }
 
 const isMac = process.platform === 'darwin'
@@ -31,6 +33,9 @@ export function attachShortcuts(contents: WebContents, h: ShortcutHandlers): voi
     else if (!isMac && input.alt && !mod && key === 'ArrowRight') h.nav('forward')
     else if (!isMac && input.control && !input.shift && code === 'KeyQ') h.quit()
     else if (mod && !input.shift && (code === 'Comma' || key === ',')) h.openSettings()
+    else if (mod && (key === '+' || key === '=' || code === 'NumpadAdd')) h.zoom(1)
+    else if (mod && !input.shift && (key === '-' || code === 'NumpadSubtract')) h.zoom(-1)
+    else if (mod && !input.shift && (code === 'Digit0' || code === 'Numpad0')) h.zoom(0)
     else if (key === 'F5') h.nav('reload', input.control)
     else if (key === 'F12' || (mod && input.shift && code === 'KeyI') || (isMac && input.meta && input.alt && code === 'KeyI'))
       h.toggleDevTools()

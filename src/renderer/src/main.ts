@@ -31,7 +31,7 @@ settingsBtn.innerHTML = icons.settings
 settingsBtn.title = 'Réglages'
 const settings = new SettingsPanel(
   $('settings'),
-  () => state?.ais ?? [],
+  () => state?.platform ?? 'linux',
   (open) => {
     root.classList.toggle('settings-open', open)
     settingsBtn.classList.toggle('active', open)
@@ -140,6 +140,8 @@ function render(s: ShellState): void {
   root.dataset.glass = s.glass
   root.dataset.maximized = String(s.maximized || s.fullscreen)
   root.dataset.focused = String(s.focused)
+  root.style.setProperty('--tint', `${s.appearance.tint}%`)
+  root.dataset.motion = s.appearance.reduceMotion ? 'reduce' : 'full'
   if (structural) buildRail(s)
 
   for (const [id, btn] of buttons) {

@@ -437,6 +437,16 @@ img {
     animation-duration: 0.01ms !important;
   }
 }
+/* Settings → Réduire les animations: no transitions, and unread icons glow without breathing. */
+:root[data-motion='reduce'] *,
+:root[data-motion='reduce'] *::before,
+:root[data-motion='reduce'] *::after {
+  transition-duration: 0.01ms !important;
+  animation: none !important;
+}
+:root[data-motion='reduce'] .rail-item.unread .rail-icon img {
+  box-shadow: 0 0 0 2px var(--item-glow, var(--item-accent)), 0 0 14px var(--item-glow, var(--item-accent));
+}
 
 /* ---------- Settings ---------- */
 
@@ -748,4 +758,151 @@ img {
 /* Hover keeps its own lift instead of fighting the animation. */
 .rail-item.unread:hover .rail-icon {
   animation-play-state: paused;
+}
+
+/* ---------- Settings: extra controls ---------- */
+
+.settings-box {
+  display: grid;
+  gap: 4px;
+}
+.settings-box > .field:first-child {
+  margin-top: 0;
+}
+.field-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.field.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+.range {
+  width: 180px;
+  accent-color: var(--accent);
+}
+.range-value {
+  min-width: 38px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+.select,
+.text-input {
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--glass-border-soft);
+  border-radius: 8px;
+  background: var(--glass-fill);
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+}
+.select option {
+  background: var(--window-solid, #222);
+  color: var(--text);
+}
+.text-input {
+  width: 230px;
+  font-family: ui-monospace, 'SF Mono', 'JetBrains Mono', 'Noto Sans Mono', monospace;
+}
+.text-input:focus,
+.select:focus {
+  outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent);
+  outline-offset: 1px;
+}
+.field-note.warn {
+  color: #e5484d;
+}
+.ai-card.hidden-ai > :not(.ai-card-head) {
+  display: none;
+}
+.ai-card.hidden-ai .ai-card-head {
+  margin-bottom: 0;
+}
+.ai-card.hidden-ai .ai-card-head img,
+.ai-card.hidden-ai .ai-card-name {
+  opacity: 0.5;
+}
+.order-btns {
+  display: inline-flex;
+  gap: 2px;
+}
+.order-btns .icon-btn:disabled {
+  opacity: 0.3;
+}
+.ai-card-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 18px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--glass-border-soft);
+}
+.ai-card-row .spacer {
+  flex: 1;
+}
+.color-input {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--glass-border-soft);
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  overflow: hidden;
+}
+.color-input::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+.color-input::-webkit-color-swatch {
+  border: 0;
+  border-radius: 50%;
+}
+.zoom {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.zoom-value {
+  min-width: 44px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-size: 12.5px;
+}
+.mini-label {
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+.pill-btn.danger:hover,
+.pill-btn.confirm {
+  color: #fff;
+  background: #e5484d;
+  border-color: transparent;
+}
+.pill-btn.done {
+  color: var(--text);
+}
+.shortcut-list {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 18px;
+  margin: 0;
+  font-size: 12.5px;
+}
+.shortcut-list dt {
+  font-family: ui-monospace, 'SF Mono', 'JetBrains Mono', 'Noto Sans Mono', monospace;
+  color: var(--text);
+}
+.shortcut-list dd {
+  margin: 0;
+  color: var(--text-muted);
+}
+.about-line {
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  color: var(--text-muted);
 }

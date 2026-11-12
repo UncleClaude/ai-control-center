@@ -5,6 +5,8 @@ export type NavAction = 'back' | 'forward' | 'reload'
 export type WindowAction = 'minimize' | 'maximize' | 'close'
 export type GlassMode = 'vibrancy' | 'blur' | 'tint' | 'solid'
 export type GlassPreference = 'auto' | 'glass' | 'solid'
+export type ThemePreference = 'system' | 'light' | 'dark'
+export type AiAction = 'clear-cache' | 'sign-out'
 
 export interface AiPublic {
   id: string
@@ -26,6 +28,8 @@ export interface ShellState {
   badges: Record<string, number>
   canGoBack: boolean
   canGoForward: boolean
+  /** Live appearance preferences the shell applies itself. */
+  appearance: { tint: number; reduceMotion: boolean }
 }
 
 export interface Rect {
@@ -60,6 +64,7 @@ export const IPC = {
   setSettings: 'shell:set-settings',
   openPath: 'shell:open-path',
   testNotification: 'shell:test-notification',
+  aiAction: 'shell:ai-action',
 } as const
 
 export interface WebNotificationPayload {
@@ -73,6 +78,12 @@ export interface AiSettings {
   notifications: boolean
   sound: boolean
   skin: boolean
+  /** Shown in the rail, shortcuts and tray (a hidden AI is not loaded). */
+  enabled: boolean
+  /** Effective accent; `accentCustom` says whether it overrides ais.json. */
+  accent: string
+  accentCustom: boolean
+  zoom: number
 }
 
 export interface Settings {
@@ -81,13 +92,61 @@ export interface Settings {
   /** Mode actually in use (the preference applies at next launch). */
   glassActive: GlassMode
   glassReason: string
+  theme: ThemePreference
+  /** Accent share in the window and site surfaces, in percent (0–30). */
+  tint: number
+  reduceMotion: boolean
+  launchAtLogin: boolean
+  startHidden: boolean
+  /** Why launch at login is unavailable (e.g. running from sources); null when supported. */
+  launchUnsupported: string | null
+  /** 'last' or an AI id. */
+  startupAi: string
+  globalShortcut: boolean
+  globalShortcutKey: string
+  /** Registration failure for the global shortcut, if any. */
+  globalShortcutError: string | null
+  doNotDisturb: boolean
+  /** Rail order (ids, every configured AI). */
+  order: string[]
   ai: Record<string, AiSettings>
+  /** Every configured AI, hidden ones included, in rail order. */
+  ais: AiPublic[]
   configPath: string
   skinsPath: string
+  dataPath: string
+  version: string
+  versions: { electron: string; chrome: string }
 }
 
-export type SettingsPatch = Partial<Pick<Settings, 'closeToTray' | 'glass'>> & {
-  ai?: Record<string, Partial<AiSettings>>
+export interface AiSettingsPatch {
+  notifications?: boolean
+  sound?: boolean
+  skin?: boolean
+  enabled?: boolean
+  /** null restores the ais.json colour. */
+  accent?: string | null
+  zoom?: number
+}
+
+export type SettingsPatch = Partial<
+  Pick<
+    Settings,
+    | 'closeToTray'
+    | 'glass'
+    | 'theme'
+    | 'tint'
+    | 'reduceMotion'
+    | 'launchAtLogin'
+    | 'startHidden'
+    | 'startupAi'
+    | 'globalShortcut'
+    | 'globalShortcutKey'
+    | 'doNotDisturb'
+    | 'order'
+  >
+> & {
+  ai?: Record<string, AiSettingsPatch>
 }
 
 export interface ShellApi {
@@ -98,8 +157,9 @@ export interface ShellApi {
   setSettingsVisible(visible: boolean): void
   getSettings(): Promise<Settings>
   setSettings(patch: SettingsPatch): Promise<Settings>
-  openPath(which: 'config' | 'skins'): void
+  openPath(which: 'config' | 'skins' | 'data'): void
   testNotification(aiId: string): void
+  aiAction(aiId: string, action: AiAction): Promise<boolean>
   select(id: string): void
   nav(action: NavAction): void
   setContentRect(rect: Rect): void

@@ -9,6 +9,12 @@ import { prepareSession } from './sessions'
 
 export const CARD_RADIUS = 14
 
+export interface ViewPrefs {
+  /** Hidden AIs are not loaded. */
+  enabled(aiId: string): boolean
+  zoom(aiId: string): number
+}
+
 export interface AiView {
   ai: AiConfig
   view: WebContentsView
@@ -30,6 +36,7 @@ export class ViewManager extends EventEmitter<{ changed: [] }> {
     private readonly win: BaseWindow,
     readonly ais: AiConfig[],
     private background: string,
+    private readonly prefs: ViewPrefs,
   ) {
     super()
     for (const ai of ais) this.create(ai)
@@ -63,6 +70,8 @@ export class ViewManager extends EventEmitter<{ changed: [] }> {
 
     const wc = view.webContents
     guardNavigation(wc, ai)
+    // Chromium resets the zoom on cross-document navigations: re-apply the AI's own factor.
+    wc.on('did-navigate', () => wc.setZoomFactor(this.prefs.zoom(ai.id)))
     const changed = () => this.emit('changed')
     for (const ev of ['did-start-loading', 'did-stop-loading', 'did-navigate', 'did-navigate-in-page'] as const) {
       wc.on(ev as 'did-stop-loading', changed)
@@ -73,15 +82,25 @@ export class ViewManager extends EventEmitter<{ changed: [] }> {
     })
   }
 
+  /** Loads a view if it is not yet (e.g. an AI that was just shown again). */
+  ensureLoaded(id: string): void {
+    const entry = this.views.get(id)
+    if (entry) this.load(entry)
+  }
+
+  setZoom(id: string, factor: number): void {
+    this.views.get(id)?.view.webContents.setZoomFactor(factor)
+  }
+
   private load(entry: AiView): void {
-    if (entry.loaded) return
+    if (entry.loaded || !this.prefs.enabled(entry.ai.id)) return
     entry.loaded = true
     void entry.view.webContents.loadURL(entry.ai.url)
   }
 
   /** Loads the active view first, then the others shortly after so background notifications work. */
   start(initialId: string | null): void {
-    const first = this.select(initialId ?? this.ais[0]?.id)
+    const first = this.select(initialId ?? this.ais.find((a) => this.prefs.enabled(a.id))?.id)
     const rest = () => this.views.forEach((e) => this.load(e))
     const wc = first?.view.webContents
     if (wc) {
@@ -117,11 +136,6 @@ export class ViewManager extends EventEmitter<{ changed: [] }> {
 
   private applyVisibility(): void {
     for (const [id, e] of this.views) e.view.setVisible(!this.overlaid && id === this.activeId)
-  }
-
-  selectIndex(index: number): void {
-    const ai = this.ais[index]
-    if (ai) this.select(ai.id)
   }
 
   get active(): AiView | undefined {

@@ -254,6 +254,7 @@ Sur Linux, *Mod* = Ctrl ; sur macOS, *Mod* = Cmd. Les raccourcis utilisent les t
 | Mod+R | recharger la vue active (Mod+Shift+R : sans cache) |
 | Mod+[ / Mod+] | précédent / suivant dans l'historique de la vue |
 | Alt+← / Alt+→ (Linux) | précédent / suivant (pratique en AZERTY, où [ et ] demandent AltGr) |
+| Mod+= / Mod+- / Mod+0 | zoom avant / arrière / taille réelle de l'IA affichée (mémorisé par IA) |
 | Mod+, | réglages |
 | Ctrl+Q (Linux), Cmd+Q (macOS) | quitter |
 | F12 / Mod+Shift+I | outils de développement de la vue active |
@@ -261,9 +262,27 @@ Sur Linux, *Mod* = Ctrl ; sur macOS, *Mod* = Cmd. Les raccourcis utilisent les t
 
 ### Réglages (engrenage en bas du rail)
 
-- **Par IA** : notifications, son, habillage aux couleurs de l'app, et un bouton **Tester** qui affiche une notification d'exemple.
-- **Général** : garder l'app dans la barre système à la fermeture ; effet de verre (Auto / Verre / Opaque).
-- **Personnalisation** : accès direct à `ais.json` et au dossier d'habillages.
+- **Par IA** :
+  - afficher ou masquer l'IA (une IA masquée n'est pas chargée) et changer l'ordre du rail avec les flèches ; l'ordre détermine aussi Mod+1, Mod+2… ;
+  - notifications, son, habillage aux couleurs de l'app ;
+  - couleur personnelle : elle remplace celle de `ais.json` dans le rail, la teinte de la fenêtre et l'habillage du site ; ↺ revient à l'originale ;
+  - zoom de la page, de 50 à 200 % ;
+  - **Tester** : affiche une notification d'exemple ;
+  - **Vider le cache** : recharge la page sans cache, la connexion est conservée ;
+  - **Se déconnecter** : efface cookies et données du site. Il faut cliquer deux fois pour confirmer.
+- **Apparence** :
+  - thème Système / Clair / Sombre, appliqué à l'app et aux sites qui suivent le thème du système ;
+  - teinte des surfaces (0–30 %, aperçu en direct) ;
+  - effet de verre (Auto / Verre / Opaque, au prochain lancement) ;
+  - réduire les animations : les icônes non lues brillent sans respirer.
+- **Notifications** : *Ne pas déranger* coupe popups et sons, mais les icônes signalent toujours les réponses non lues. L'option est aussi dans le menu de la barre système.
+- **Démarrage et fenêtre** :
+  - **lancer à l'ouverture de session**, éventuellement masqué dans la barre système. Sur Linux, une entrée `~/.config/autostart/ai-control-center.desktop` est créée. Cette option demande l'AppImage ou le paquet Arch, pas les sources ;
+  - IA ouverte au démarrage (la dernière, ou une IA fixe) ;
+  - garder l'app dans la barre système à la fermeture ;
+  - **raccourci global** pour afficher ou masquer la fenêtre depuis n'importe où (`CommandOrControl+Shift+Space` par défaut, modifiable). Sous Wayland, il passe par le portail XDG GlobalShortcuts : KDE et Hyprland (avec `xdg-desktop-portal-hyprland`) demandent une confirmation la première fois.
+- **Fichiers** : accès direct à `ais.json`, au dossier d'habillages et au dossier de données.
+- **Raccourcis et version** : aide-mémoire des raccourcis, versions de l'app, d'Electron et de Chromium.
 
 Le chevron en bas du rail affiche les noms des IA. L'app mémorise la taille de la fenêtre, son état maximisé et la dernière IA ouverte. Sous Wayland, c'est le compositeur qui place la fenêtre, donc sa position n'est pas restaurée.
 
@@ -271,7 +290,7 @@ Le chevron en bas du rail affiche les noms des IA. L'app mémorise la taille de 
 
 ## 7. Ajouter une IA
 
-Édite `~/.config/ai-control-center/ais.json` (Réglages → Personnalisation), puis relance :
+Édite `~/.config/ai-control-center/ais.json` (Réglages → Fichiers), puis relance :
 
 ```json
 {

@@ -23,6 +23,7 @@ const api: ShellApi = {
   setSettings: (patch) => ipcRenderer.invoke(IPC.setSettings, patch),
   openPath: (which) => ipcRenderer.send(IPC.openPath, which),
   testNotification: (aiId) => ipcRenderer.send(IPC.testNotification, aiId),
+  aiAction: (aiId, action) => ipcRenderer.invoke(IPC.aiAction, aiId, action),
   select: (id) => ipcRenderer.send(IPC.select, id),
   nav: (action) => ipcRenderer.send(IPC.nav, action),
   setContentRect: (rect) => ipcRenderer.send(IPC.layout, rect),

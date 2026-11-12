@@ -1,31 +1,61 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { app } from 'electron'
-import type { GlassPreference } from '../shared/protocol'
+import type { GlassPreference, ThemePreference } from '../shared/protocol'
 
 export interface AiPrefs {
   notifications: boolean
   sound: boolean
   skin: boolean
+  enabled: boolean
+  /** Overrides the ais.json accent; null = use it. */
+  accent: string | null
+  zoom: number
+}
+
+export interface Prefs {
+  closeToTray: boolean
+  glass: GlassPreference
+  theme: ThemePreference
+  tint: number
+  reduceMotion: boolean
+  launchAtLogin: boolean
+  startHidden: boolean
+  startupAi: string
+  globalShortcut: boolean
+  globalShortcutKey: string
+  doNotDisturb: boolean
+  order: string[]
+  ai: Record<string, AiPrefs>
 }
 
 export interface AppState {
   window: { width: number; height: number; x?: number; y?: number; maximized: boolean }
   lastAiId: string | null
-  prefs: {
-    closeToTray: boolean
-    glass: GlassPreference
-    ai: Record<string, AiPrefs>
-  }
+  prefs: Prefs
 }
 
 const DEFAULTS: AppState = {
   window: { width: 1280, height: 840, maximized: false },
   lastAiId: null,
-  prefs: { closeToTray: true, glass: 'auto', ai: {} },
+  prefs: {
+    closeToTray: true,
+    glass: 'auto',
+    theme: 'system',
+    tint: 11,
+    reduceMotion: false,
+    launchAtLogin: false,
+    startHidden: true,
+    startupAi: 'last',
+    globalShortcut: false,
+    globalShortcutKey: 'CommandOrControl+Shift+Space',
+    doNotDisturb: false,
+    order: [],
+    ai: {},
+  },
 }
 
-export const DEFAULT_AI_PREFS: AiPrefs = { notifications: true, sound: false, skin: true }
+export const DEFAULT_AI_PREFS: AiPrefs = { notifications: true, sound: false, skin: true, enabled: true, accent: null, zoom: 1 }
 
 /** Small JSON store in userData/state.json: window geometry, last AI, preferences. */
 class Store {

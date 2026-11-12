@@ -7,6 +7,8 @@ export interface TrayHandlers {
   openAi(id: string): void
   isCloseToTray(): boolean
   setCloseToTray(value: boolean): void
+  isDoNotDisturb(): boolean
+  setDoNotDisturb(value: boolean): void
   quit(): void
 }
 
@@ -30,7 +32,8 @@ export class AppTray {
   private badges: Record<string, number> = {}
 
   constructor(
-    private readonly ais: AiConfig[],
+    /** Visible AIs, in rail order (re-read on every rebuild). */
+    private readonly ais: () => AiConfig[],
     private readonly h: TrayHandlers,
   ) {
     this.normal = load(isMac ? 'trayTemplate' : 'tray')
@@ -51,7 +54,7 @@ export class AppTray {
     this.rebuild()
   }
 
-  /** Re-reads the close-to-tray state (changed from settings). */
+  /** Re-reads the AI list and the checkboxes (changed from settings). */
   refresh(): void {
     this.rebuild()
   }
@@ -60,11 +63,17 @@ export class AppTray {
     const items: MenuItemConstructorOptions[] = [
       { label: 'Afficher / masquer', click: () => this.h.toggleWindow() },
       { type: 'separator' },
-      ...this.ais.map((ai) => {
+      ...this.ais().map((ai) => {
         const n = this.badges[ai.id] ?? 0
         return { label: n > 0 ? `${ai.name}  •  ${n}` : ai.name, click: () => this.h.openAi(ai.id) }
       }),
       { type: 'separator' },
+      {
+        label: 'Ne pas déranger',
+        type: 'checkbox',
+        checked: this.h.isDoNotDisturb(),
+        click: (item) => this.h.setDoNotDisturb(item.checked),
+      },
       {
         label: 'Garder dans la barre système à la fermeture',
         type: 'checkbox',

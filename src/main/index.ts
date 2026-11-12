@@ -1,8 +1,8 @@
 import { join } from 'node:path'
-import { app, ipcMain, nativeTheme, screen, shell, WebContentsView, type BaseWindow, type IpcMainEvent } from 'electron'
+import { app, globalShortcut, ipcMain, nativeTheme, screen, shell, WebContentsView, type BaseWindow, type IpcMainEvent } from 'electron'
 import { z } from 'zod'
-import { IPC, type GlassPreference, type Platform, type Settings, type ShellState, type SiteRole } from '../shared/protocol'
-import { configFilePath, loadAiConfig } from './config'
+import { IPC, type AiPublic, type GlassPreference, type Platform, type Settings, type ShellState, type SiteRole } from '../shared/protocol'
+import { configFilePath, loadAiConfig, type AiConfig } from './config'
 import { detectGlass, type GlassInfo } from './glass'
 import { installMenu } from './menu'
 import { NotificationHub } from './notifications'
@@ -10,6 +10,7 @@ import { preloadPath } from './paths'
 import { chromeMajor, chromeUserAgent, firefoxIdentity } from './sessions'
 import { attachShortcuts, type ShortcutHandlers } from './shortcuts'
 import { SkinManager, userSkinDir } from './skins'
+import { applyGlobalShortcut, applyLaunchAtLogin, launchUnsupported, startsHidden } from './startup'
 import { store } from './store'
 import { AppTray } from './tray'
 import { ViewManager } from './views'
@@ -20,6 +21,8 @@ import { createMainWindow, siteBackground } from './window'
 const profile = process.env.AICC_PROFILE?.replace(/[^\w-]/g, '')
 app.setPath('userData', join(app.getPath('appData'), profile ? `ai-control-center-${profile}` : 'ai-control-center'))
 app.userAgentFallback = chromeUserAgent()
+// Global shortcuts under Wayland go through the XDG GlobalShortcuts portal (KDE, Hyprland, GNOME 48+).
+if (process.platform === 'linux') app.commandLine.appendSwitch('enable-features', 'GlobalShortcutsPortal')
 
 let win: BaseWindow | null = null
 let shellView: WebContentsView | null = null
@@ -30,6 +33,35 @@ let hub: NotificationHub | null = null
 let glass: GlassInfo
 let quitting = false
 let badges: Record<string, number> = {}
+let shortcutError: string | null = null
+/** ais.json accents, before the user's per-AI overrides. */
+const baseAccent = new Map<string, string>()
+
+const ZOOM_STEPS = [0.5, 0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2]
+
+// ---------- AI order and visibility ----------
+
+/** Every configured AI, in the user's rail order (new ones at the end, in ais.json order). */
+function orderedAis(): AiConfig[] {
+  const all = views?.ais ?? []
+  const order = store.state.prefs.order
+  const rank = (ai: AiConfig) => {
+    const i = order.indexOf(ai.id)
+    return i === -1 ? order.length + all.indexOf(ai) : i
+  }
+  return [...all].sort((a, b) => rank(a) - rank(b))
+}
+
+/** What the rail, shortcuts and tray show. */
+function visibleAis(): AiConfig[] {
+  return orderedAis().filter((ai) => store.aiPrefs(ai.id).enabled)
+}
+
+const publicAi = (ai: AiConfig): AiPublic => ({ id: ai.id, name: ai.name, icon: ai.iconDataUrl, accent: ai.accent })
+
+function applyAccent(ai: AiConfig): void {
+  ai.accent = store.aiPrefs(ai.id).accent ?? baseAccent.get(ai.id) ?? ai.accent
+}
 
 // ---------- Shell state ----------
 
@@ -43,12 +75,13 @@ function shellState(): ShellState {
     maximized: win?.isMaximized() ?? false,
     fullscreen: win?.isFullScreen() ?? false,
     focused: win?.isFocused() ?? false,
-    ais: (views?.ais ?? []).map((ai) => ({ id: ai.id, name: ai.name, icon: ai.iconDataUrl, accent: ai.accent })),
+    ais: visibleAis().map(publicAi),
     activeId: views?.activeId ?? null,
     loading,
     badges,
     canGoBack: history?.canGoBack() ?? false,
     canGoForward: history?.canGoForward() ?? false,
+    appearance: { tint: store.state.prefs.tint, reduceMotion: store.state.prefs.reduceMotion },
   }
 }
 
@@ -134,7 +167,10 @@ function registerIpc(): void {
   const RectSchema = z.object({ x: z.number(), y: z.number(), width: z.number(), height: z.number() })
 
   ipcMain.handle(IPC.getState, (e) => (fromShell(e) ? shellState() : null))
-  ipcMain.on(IPC.select, (e, id) => fromShell(e) && views?.select(Id.parse(id)))
+  ipcMain.on(IPC.select, (e, id) => {
+    const target = Id.parse(id)
+    if (fromShell(e) && store.aiPrefs(target).enabled) views?.select(target)
+  })
   ipcMain.on(IPC.nav, (e, action) => fromShell(e) && views?.nav(Nav.parse(action)))
   ipcMain.on(IPC.layout, (e, rect) => fromShell(e) && views?.setContentRect(RectSchema.parse(rect)))
   ipcMain.on(IPC.windowControl, (e, action) => {
@@ -174,44 +210,141 @@ function registerIpc(): void {
   })
 
   // ---- Settings ----
-  const settings = (): Settings => ({
-    closeToTray: store.state.prefs.closeToTray,
-    glass: store.state.prefs.glass,
-    glassActive: glass.mode,
-    glassReason: glass.reason,
-    ai: Object.fromEntries((views?.ais ?? []).map((ai) => [ai.id, store.aiPrefs(ai.id)])),
-    configPath: configFilePath(),
-    skinsPath: userSkinDir(),
-  })
-  const AiPatch = z.object({ notifications: z.boolean(), sound: z.boolean(), skin: z.boolean() }).partial()
+  const settings = (): Settings => {
+    const p = store.state.prefs
+    const ordered = orderedAis()
+    return {
+      closeToTray: p.closeToTray,
+      glass: p.glass,
+      glassActive: glass.mode,
+      glassReason: glass.reason,
+      theme: p.theme,
+      tint: p.tint,
+      reduceMotion: p.reduceMotion,
+      launchAtLogin: p.launchAtLogin,
+      startHidden: p.startHidden,
+      launchUnsupported: launchUnsupported(),
+      startupAi: p.startupAi,
+      globalShortcut: p.globalShortcut,
+      globalShortcutKey: p.globalShortcutKey,
+      globalShortcutError: shortcutError,
+      doNotDisturb: p.doNotDisturb,
+      order: ordered.map((ai) => ai.id),
+      ai: Object.fromEntries(
+        ordered.map((ai) => {
+          const prefs = store.aiPrefs(ai.id)
+          return [
+            ai.id,
+            {
+              notifications: prefs.notifications,
+              sound: prefs.sound,
+              skin: prefs.skin,
+              enabled: prefs.enabled,
+              accent: ai.accent,
+              accentCustom: prefs.accent !== null,
+              zoom: prefs.zoom,
+            },
+          ]
+        }),
+      ),
+      ais: ordered.map(publicAi),
+      configPath: configFilePath(),
+      skinsPath: userSkinDir(),
+      dataPath: app.getPath('userData'),
+      version: app.getVersion(),
+      versions: { electron: process.versions.electron, chrome: process.versions.chrome },
+    }
+  }
+  const Hex = z.string().regex(/^#[0-9a-fA-F]{6}$/)
+  const AiPatch = z
+    .object({
+      notifications: z.boolean(),
+      sound: z.boolean(),
+      skin: z.boolean(),
+      enabled: z.boolean(),
+      accent: Hex.nullable(),
+      zoom: z.number().min(0.5).max(2),
+    })
+    .partial()
   const Patch = z.object({
     closeToTray: z.boolean().optional(),
     glass: z.enum(['auto', 'glass', 'solid']).optional(),
-    ai: z.record(z.string().max(64), AiPatch).optional(),
+    theme: z.enum(['system', 'light', 'dark']).optional(),
+    tint: z.number().int().min(0).max(30).optional(),
+    reduceMotion: z.boolean().optional(),
+    launchAtLogin: z.boolean().optional(),
+    startHidden: z.boolean().optional(),
+    startupAi: z.string().max(64).optional(),
+    globalShortcut: z.boolean().optional(),
+    globalShortcutKey: z.string().min(1).max(80).optional(),
+    doNotDisturb: z.boolean().optional(),
+    order: z.array(Id).max(64).optional(),
+    ai: z.record(Id, AiPatch).optional(),
   })
   ipcMain.handle(IPC.getSettings, (e) => (fromShell(e) ? settings() : null))
   ipcMain.handle(IPC.setSettings, (e, raw) => {
     if (!fromShell(e)) return null
     const patch = Patch.parse(raw)
-    let skinChanged = false
+    const known = (id: string) => !!views?.views.has(id)
+    let skinChanged = patch.tint !== undefined
+    let railChanged = !!patch.order
     store.update((s) => {
-      if (patch.closeToTray !== undefined) s.prefs.closeToTray = patch.closeToTray
-      if (patch.glass) s.prefs.glass = patch.glass
-      for (const [id, p] of Object.entries(patch.ai ?? {})) {
-        if (!views?.views.has(id)) continue
-        if (p.skin !== undefined) skinChanged = true
-        s.prefs.ai[id] = { ...store.aiPrefs(id), ...p }
+      const { ai: aiPatch, order, ...general } = patch
+      Object.assign(s.prefs, Object.fromEntries(Object.entries(general).filter(([, v]) => v !== undefined)))
+      if (order) s.prefs.order = order.filter(known)
+      for (const [id, p] of Object.entries(aiPatch ?? {})) {
+        if (!known(id)) continue
+        const next = { ...store.aiPrefs(id), ...p }
+        // At least one AI stays visible.
+        if (p.enabled === false && visibleAis().every((ai) => ai.id === id)) next.enabled = true
+        s.prefs.ai[id] = next
+        if (p.skin !== undefined || p.accent !== undefined) skinChanged = true
+        if (p.enabled !== undefined || p.accent !== undefined) railChanged = true
       }
     })
+    for (const [id, p] of Object.entries(patch.ai ?? {})) {
+      const ai = views?.views.get(id)?.ai
+      if (!ai) continue
+      if (p.accent !== undefined) applyAccent(ai)
+      if (p.zoom !== undefined) views?.setZoom(id, store.aiPrefs(id).zoom)
+      if (p.enabled) views?.ensureLoaded(id)
+    }
+    // The active AI was hidden: move to the first visible one.
+    const active = views?.activeId
+    if (active && !store.aiPrefs(active).enabled) views?.select(visibleAis()[0]?.id)
+    if (patch.theme) nativeTheme.themeSource = patch.theme
+    if (patch.launchAtLogin !== undefined || patch.startHidden !== undefined) {
+      applyLaunchAtLogin(store.state.prefs.launchAtLogin, store.state.prefs.startHidden)
+    }
+    if (patch.globalShortcut !== undefined || patch.globalShortcutKey !== undefined) registerGlobalShortcut()
     if (skinChanged) skins?.refreshAll()
-    if (patch.closeToTray !== undefined) tray?.refresh()
+    if (railChanged) installMenu(visibleAis(), handlers)
+    tray?.refresh()
+    pushState()
     return settings()
+  })
+  ipcMain.handle(IPC.aiAction, async (e, id, action) => {
+    if (!fromShell(e)) return false
+    const entry = views?.views.get(Id.parse(id))
+    const kind = z.enum(['clear-cache', 'sign-out']).parse(action)
+    if (!entry) return false
+    const wc = entry.view.webContents
+    await wc.session.clearCache()
+    if (kind === 'sign-out') {
+      // Cookies, local storage, IndexedDB, service workers: the AI starts signed out.
+      await wc.session.clearStorageData()
+      hub?.seen(entry.ai.id)
+      if (entry.loaded) void wc.loadURL(entry.ai.url)
+    } else if (entry.loaded) wc.reloadIgnoringCache()
+    console.info(`[settings] ${entry.ai.id} : ${kind === 'sign-out' ? 'données effacées' : 'cache vidé'}`)
+    return true
   })
   ipcMain.on(IPC.settingsVisible, (e, visible) => fromShell(e) && views?.setOverlay(visible === true))
   ipcMain.on(IPC.openPath, (e, which) => {
     if (!fromShell(e)) return
     if (which === 'config') void shell.openPath(configFilePath())
     else if (which === 'skins') void shell.openPath(userSkinDir())
+    else if (which === 'data') void shell.openPath(app.getPath('userData'))
   })
   ipcMain.on(IPC.testNotification, (e, id) => {
     if (fromShell(e) && typeof id === 'string' && views?.views.has(id)) hub?.test(id)
@@ -230,6 +363,43 @@ function registerIpc(): void {
   })
 }
 
+// ---------- Shortcuts ----------
+
+function zoomActive(step: 1 | -1 | 0): void {
+  const id = views?.activeId
+  if (!id) return
+  const current = store.aiPrefs(id).zoom
+  let next = 1
+  if (step !== 0) {
+    const i = ZOOM_STEPS.findIndex((z) => z >= current - 0.001)
+    const at = i === -1 ? ZOOM_STEPS.length - 1 : i
+    next = ZOOM_STEPS[Math.min(ZOOM_STEPS.length - 1, Math.max(0, at + step))]
+  }
+  store.update((s) => (s.prefs.ai[id] = { ...store.aiPrefs(id), zoom: next }))
+  views?.setZoom(id, next)
+}
+
+const handlers: ShortcutHandlers = {
+  selectIndex: (i) => {
+    const ai = visibleAis()[i]
+    if (ai) views?.select(ai.id)
+  },
+  nav: (a, ignoreCache) => views?.nav(a, ignoreCache),
+  toggleDevTools: () => views?.toggleDevTools(),
+  quit,
+  openSettings: () => {
+    showWindow()
+    shellView?.webContents.send(IPC.openSettings)
+  },
+  zoom: zoomActive,
+}
+
+function registerGlobalShortcut(): void {
+  const p = store.state.prefs
+  shortcutError = applyGlobalShortcut(p.globalShortcut, p.globalShortcutKey, toggleWindow)
+  if (shortcutError) console.warn(`[shortcut] ${p.globalShortcutKey} : ${shortcutError}`)
+}
+
 // ---------- Window ----------
 
 function glassPreference(): GlassPreference {
@@ -239,6 +409,11 @@ function glassPreference(): GlassPreference {
 
 function createWindow(): void {
   const ais = loadAiConfig()
+  for (const ai of ais) {
+    baseAccent.set(ai.id, ai.accent)
+    applyAccent(ai)
+  }
+  nativeTheme.themeSource = store.state.prefs.theme
   glass = detectGlass(glassPreference())
   console.info(`[glass] mode ${glass.mode} (${glass.reason})`)
   const window = createMainWindow(glass, restoredBounds())
@@ -254,19 +429,12 @@ function createWindow(): void {
   // The shell is added first so it sits under the AI views; it draws the chrome and reports
   // where the content card is.
   window.contentView.addChildView(shellView)
-  views = new ViewManager(window, ais, siteBackground())
+  views = new ViewManager(window, ais, siteBackground(), {
+    enabled: (id) => store.aiPrefs(id).enabled,
+    zoom: (id) => store.aiPrefs(id).zoom,
+  })
 
-  const handlers: ShortcutHandlers = {
-    selectIndex: (i) => views?.selectIndex(i),
-    nav: (a, ignoreCache) => views?.nav(a, ignoreCache),
-    toggleDevTools: () => views?.toggleDevTools(),
-    quit,
-    openSettings: () => {
-      showWindow()
-      shellView?.webContents.send(IPC.openSettings)
-    },
-  }
-  installMenu(ais, handlers)
+  installMenu(visibleAis(), handlers)
   attachShortcuts(shellView.webContents, handlers)
   for (const e of views.views.values()) attachShortcuts(e.view.webContents, handlers)
   views.on('changed', () => {
@@ -305,18 +473,20 @@ function createWindow(): void {
   if (!app.isPackaged && process.env.ELECTRON_RENDERER_URL) void shellView.webContents.loadURL(process.env.ELECTRON_RENDERER_URL)
   else void shellView.webContents.loadFile(join(__dirname, '../renderer/index.html'))
   shellView.webContents.once('did-finish-load', () => {
-    if (!process.argv.includes('--hidden')) win?.show()
+    if (!startsHidden(store.state.prefs.startHidden)) win?.show()
   })
 
   skins = new SkinManager(
     (id) => process.env.AICC_SKINS !== '0' && store.aiPrefs(id).skin,
     (contents) => views?.fromContents(contents)?.ai,
+    () => store.state.prefs.tint,
   )
   for (const e of views.views.values()) skins.attach(e.view.webContents)
 
   hub = new NotificationHub({
     ais,
     prefs: (id) => store.aiPrefs(id),
+    doNotDisturb: () => store.state.prefs.doNotDisturb,
     isViewing,
     open: (id, url) => {
       showWindow(id)
@@ -335,16 +505,23 @@ function createWindow(): void {
   window.on('focus', markSeen)
   window.on('show', markSeen)
 
-  const last = store.state.lastAiId
-  views.start(last && ais.some((a) => a.id === last) ? last : null)
+  const pref = store.state.prefs.startupAi
+  const initial = pref === 'last' ? store.state.lastAiId : pref
+  views.start(initial && visibleAis().some((a) => a.id === initial) ? initial : (visibleAis()[0]?.id ?? null))
 
-  tray = new AppTray(ais, {
+  tray = new AppTray(visibleAis, {
     toggleWindow,
     openAi: (id) => showWindow(id),
     isCloseToTray: () => store.state.prefs.closeToTray,
     setCloseToTray: (value) => store.update((s) => (s.prefs.closeToTray = value)),
+    isDoNotDisturb: () => store.state.prefs.doNotDisturb,
+    setDoNotDisturb: (value) => store.update((s) => (s.prefs.doNotDisturb = value)),
     quit,
   })
+
+  registerGlobalShortcut()
+  // Keep the login item pointing at the current executable (an AppImage may have moved).
+  if (store.state.prefs.launchAtLogin) applyLaunchAtLogin(true, store.state.prefs.startHidden)
 
   window.on('closed', () => {
     nativeTheme.off('updated', onTheme)
@@ -383,6 +560,7 @@ function startup(): void {
   })
   // macOS: clicking the Dock icon brings the hidden window back.
   app.on('activate', () => showWindow())
+  app.on('will-quit', () => globalShortcut.unregisterAll())
   app.on('before-quit', () => {
     quitting = true
     store.flush()

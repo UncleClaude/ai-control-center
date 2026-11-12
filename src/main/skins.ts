@@ -28,6 +28,8 @@ export class SkinManager {
   constructor(
     private readonly enabled: (aiId: string) => boolean,
     private readonly lookup: (contents: WebContents) => AiConfig | undefined,
+    /** Accent share of the surfaces, in percent (Settings → Apparence). */
+    private readonly tint: () => number,
   ) {
     const dir = userSkinDir()
     try {
@@ -44,7 +46,7 @@ export class SkinManager {
 
   private cssFor(ai: AiConfig): string {
     // The accent comes from ais.json, so every tone follows the AI's own colour.
-    const accent = `:root { --aicc-accent: ${ai.accent}; }`
+    const accent = `:root { --aicc-accent: ${ai.accent}; --aicc-tint: ${this.tint()}%; }`
     const parts = [palette, accent, base, BUILT_IN[ai.adapter ?? ai.id] ?? '']
     const user = join(userSkinDir(), `${ai.id}.css`)
     if (existsSync(user)) {
