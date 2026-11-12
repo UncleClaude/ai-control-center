@@ -22,6 +22,8 @@ export interface AiView {
 export class ViewManager extends EventEmitter<{ changed: [] }> {
   readonly views = new Map<string, AiView>()
   activeId: string | null = null
+  /** While the shell shows a panel (settings) over the content area, every view is hidden. */
+  private overlaid = false
   private rect: Rect = { x: 0, y: 0, width: 800, height: 600 }
 
   constructor(
@@ -95,12 +97,26 @@ export class ViewManager extends EventEmitter<{ changed: [] }> {
     const entry = id ? this.views.get(id) : undefined
     if (!entry) return undefined
     this.load(entry)
-    for (const [otherId, other] of this.views) other.view.setVisible(otherId === id)
     this.activeId = entry.ai.id
+    this.applyVisibility()
     entry.view.setBounds(this.rect)
-    entry.view.webContents.focus()
+    if (!this.overlaid) entry.view.webContents.focus()
     this.emit('changed')
     return entry
+  }
+
+  setOverlay(overlaid: boolean): void {
+    this.overlaid = overlaid
+    this.applyVisibility()
+    if (!overlaid) this.active?.view.webContents.focus()
+  }
+
+  get isOverlaid(): boolean {
+    return this.overlaid
+  }
+
+  private applyVisibility(): void {
+    for (const [id, e] of this.views) e.view.setVisible(!this.overlaid && id === this.activeId)
   }
 
   selectIndex(index: number): void {

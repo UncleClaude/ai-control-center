@@ -51,6 +51,11 @@ export class AppTray {
     this.rebuild()
   }
 
+  /** Re-reads the close-to-tray state (changed from settings). */
+  refresh(): void {
+    this.rebuild()
+  }
+
   private rebuild(): void {
     const items: MenuItemConstructorOptions[] = [
       { label: 'Afficher / masquer', click: () => this.h.toggleWindow() },

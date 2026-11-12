@@ -179,6 +179,12 @@ export class NotificationHub extends EventEmitter<{ badges: [Record<string, numb
     n.show()
   }
 
+  /** Settings "Test" button: shows a sample notification regardless of focus. */
+  test(aiId: string): void {
+    this.show(aiId, { kind: 'done', snippet: 'Ceci est une notification de test.', key: 'test', source: 'adapter' })
+    if (this.deps.prefs(aiId).sound) this.deps.playSound()
+  }
+
   /** The user looked at this AI: its badge goes away. */
   seen(aiId: string): void {
     if (!this.badges[aiId]) return

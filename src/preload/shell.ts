@@ -13,6 +13,16 @@ const api: ShellApi = {
     ipcRenderer.on(IPC.playSound, wrapped)
     return () => ipcRenderer.off(IPC.playSound, wrapped)
   },
+  onOpenSettings: (listener) => {
+    const wrapped = () => listener()
+    ipcRenderer.on(IPC.openSettings, wrapped)
+    return () => ipcRenderer.off(IPC.openSettings, wrapped)
+  },
+  setSettingsVisible: (visible) => ipcRenderer.send(IPC.settingsVisible, visible),
+  getSettings: () => ipcRenderer.invoke(IPC.getSettings),
+  setSettings: (patch) => ipcRenderer.invoke(IPC.setSettings, patch),
+  openPath: (which) => ipcRenderer.send(IPC.openPath, which),
+  testNotification: (aiId) => ipcRenderer.send(IPC.testNotification, aiId),
   select: (id) => ipcRenderer.send(IPC.select, id),
   nav: (action) => ipcRenderer.send(IPC.nav, action),
   setContentRect: (rect) => ipcRenderer.send(IPC.layout, rect),

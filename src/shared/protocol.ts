@@ -53,6 +53,13 @@ export const IPC = {
   webNotificationClick: 'site:web-notification-click',
   /** main → shell: play the notification chime */
   playSound: 'shell:play-sound',
+  /** main → shell: open the settings panel (menu / shortcut) */
+  openSettings: 'shell:open-settings',
+  settingsVisible: 'shell:settings-visible',
+  getSettings: 'shell:get-settings',
+  setSettings: 'shell:set-settings',
+  openPath: 'shell:open-path',
+  testNotification: 'shell:test-notification',
 } as const
 
 export interface WebNotificationPayload {
@@ -62,10 +69,37 @@ export interface WebNotificationPayload {
   tag: string
 }
 
+export interface AiSettings {
+  notifications: boolean
+  sound: boolean
+  skin: boolean
+}
+
+export interface Settings {
+  closeToTray: boolean
+  glass: GlassPreference
+  /** Mode actually in use (the preference applies at next launch). */
+  glassActive: GlassMode
+  glassReason: string
+  ai: Record<string, AiSettings>
+  configPath: string
+  skinsPath: string
+}
+
+export type SettingsPatch = Partial<Pick<Settings, 'closeToTray' | 'glass'>> & {
+  ai?: Record<string, Partial<AiSettings>>
+}
+
 export interface ShellApi {
   getState(): Promise<ShellState>
   onState(listener: (state: ShellState) => void): () => void
   onPlaySound(listener: () => void): () => void
+  onOpenSettings(listener: () => void): () => void
+  setSettingsVisible(visible: boolean): void
+  getSettings(): Promise<Settings>
+  setSettings(patch: SettingsPatch): Promise<Settings>
+  openPath(which: 'config' | 'skins'): void
+  testNotification(aiId: string): void
   select(id: string): void
   nav(action: NavAction): void
   setContentRect(rect: Rect): void

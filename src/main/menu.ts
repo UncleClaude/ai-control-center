@@ -14,7 +14,20 @@ export function installMenu(ais: AiConfig[], h: ShortcutHandlers): void {
   }
   const shown = (accelerator: string) => ({ accelerator, registerAccelerator: false })
   const template: MenuItemConstructorOptions[] = [
-    { role: 'appMenu' },
+    {
+      role: 'appMenu',
+      submenu: [
+        { role: 'about' },
+        { type: 'separator' },
+        { label: 'Réglages…', ...shown('Cmd+,'), click: () => h.openSettings() },
+        { type: 'separator' },
+        { role: 'hide' },
+        { role: 'hideOthers' },
+        { role: 'unhide' },
+        { type: 'separator' },
+        { role: 'quit' },
+      ],
+    },
     { role: 'editMenu' },
     {
       label: 'Affichage',

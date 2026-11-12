@@ -1,15 +1,15 @@
 import { join } from 'node:path'
-import { app, ipcMain, nativeTheme, screen, WebContentsView, type BaseWindow, type IpcMainEvent } from 'electron'
+import { app, ipcMain, nativeTheme, screen, shell, WebContentsView, type BaseWindow, type IpcMainEvent } from 'electron'
 import { z } from 'zod'
-import { IPC, type GlassPreference, type Platform, type ShellState, type SiteRole } from '../shared/protocol'
-import { loadAiConfig } from './config'
+import { IPC, type GlassPreference, type Platform, type Settings, type ShellState, type SiteRole } from '../shared/protocol'
+import { configFilePath, loadAiConfig } from './config'
 import { detectGlass, type GlassInfo } from './glass'
 import { installMenu } from './menu'
 import { NotificationHub } from './notifications'
 import { preloadPath } from './paths'
 import { chromeMajor, chromeUserAgent, firefoxIdentity } from './sessions'
 import { attachShortcuts, type ShortcutHandlers } from './shortcuts'
-import { SkinManager } from './skins'
+import { SkinManager, userSkinDir } from './skins'
 import { store } from './store'
 import { AppTray } from './tray'
 import { ViewManager } from './views'
@@ -173,6 +173,50 @@ function registerIpc(): void {
     ;(level === 'warn' ? console.warn : console.info)(`[adapter:${ai.id}] ${message.slice(0, 600)}`)
   })
 
+  // ---- Settings ----
+  const settings = (): Settings => ({
+    closeToTray: store.state.prefs.closeToTray,
+    glass: store.state.prefs.glass,
+    glassActive: glass.mode,
+    glassReason: glass.reason,
+    ai: Object.fromEntries((views?.ais ?? []).map((ai) => [ai.id, store.aiPrefs(ai.id)])),
+    configPath: configFilePath(),
+    skinsPath: userSkinDir(),
+  })
+  const AiPatch = z.object({ notifications: z.boolean(), sound: z.boolean(), skin: z.boolean() }).partial()
+  const Patch = z.object({
+    closeToTray: z.boolean().optional(),
+    glass: z.enum(['auto', 'glass', 'solid']).optional(),
+    ai: z.record(z.string().max(64), AiPatch).optional(),
+  })
+  ipcMain.handle(IPC.getSettings, (e) => (fromShell(e) ? settings() : null))
+  ipcMain.handle(IPC.setSettings, (e, raw) => {
+    if (!fromShell(e)) return null
+    const patch = Patch.parse(raw)
+    let skinChanged = false
+    store.update((s) => {
+      if (patch.closeToTray !== undefined) s.prefs.closeToTray = patch.closeToTray
+      if (patch.glass) s.prefs.glass = patch.glass
+      for (const [id, p] of Object.entries(patch.ai ?? {})) {
+        if (!views?.views.has(id)) continue
+        if (p.skin !== undefined) skinChanged = true
+        s.prefs.ai[id] = { ...store.aiPrefs(id), ...p }
+      }
+    })
+    if (skinChanged) skins?.refreshAll()
+    if (patch.closeToTray !== undefined) tray?.refresh()
+    return settings()
+  })
+  ipcMain.on(IPC.settingsVisible, (e, visible) => fromShell(e) && views?.setOverlay(visible === true))
+  ipcMain.on(IPC.openPath, (e, which) => {
+    if (!fromShell(e)) return
+    if (which === 'config') void shell.openPath(configFilePath())
+    else if (which === 'skins') void shell.openPath(userSkinDir())
+  })
+  ipcMain.on(IPC.testNotification, (e, id) => {
+    if (fromShell(e) && typeof id === 'string' && views?.views.has(id)) hub?.test(id)
+  })
+
   // Site preloads ask (synchronously, at startup) which AI they belong to.
   ipcMain.on(IPC.siteRole, (e: IpcMainEvent) => {
     const entry = views?.fromContents(e.sender)
@@ -217,6 +261,10 @@ function createWindow(): void {
     nav: (a, ignoreCache) => views?.nav(a, ignoreCache),
     toggleDevTools: () => views?.toggleDevTools(),
     quit,
+    openSettings: () => {
+      showWindow()
+      shellView?.webContents.send(IPC.openSettings)
+    },
   }
   installMenu(ais, handlers)
   attachShortcuts(shellView.webContents, handlers)

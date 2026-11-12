@@ -1,5 +1,6 @@
 import type { ShellState } from '../../shared/protocol'
 import { icons } from './icons'
+import { SettingsPanel } from './settings'
 import { playChime } from './sound'
 import './styles/tokens.css'
 import './styles/app.css'
@@ -17,12 +18,27 @@ const forwardBtn = $<HTMLButtonElement>('nav-forward')
 const reloadBtn = $<HTMLButtonElement>('nav-reload')
 const maxBtn = $<HTMLButtonElement>('wc-max')
 const railToggle = $<HTMLButtonElement>('rail-toggle')
+const settingsBtn = $<HTMLButtonElement>('rail-settings')
 
 backBtn.innerHTML = icons.back
 forwardBtn.innerHTML = icons.forward
 reloadBtn.innerHTML = icons.reload
 $('wc-min').innerHTML = icons.minimize
 $('wc-close').innerHTML = icons.close
+
+settingsBtn.innerHTML = icons.settings
+settingsBtn.title = 'Réglages'
+const settings = new SettingsPanel(
+  $('settings'),
+  () => state?.ais ?? [],
+  (open) => {
+    root.classList.toggle('settings-open', open)
+    settingsBtn.classList.toggle('active', open)
+    placeIndicator()
+  },
+)
+settingsBtn.addEventListener('click', () => settings.toggle())
+api.onOpenSettings(() => void settings.show())
 
 backBtn.addEventListener('click', () => api.nav('back'))
 forwardBtn.addEventListener('click', () => api.nav('forward'))
@@ -94,7 +110,10 @@ function buildRail(s: ShellState): void {
     label.textContent = ai.name
 
     btn.append(iconWrap, label)
-    btn.addEventListener('click', () => api.select(ai.id))
+    btn.addEventListener('click', () => {
+      settings.hide()
+      api.select(ai.id)
+    })
     li.append(btn)
     list.append(li)
     buttons.set(ai.id, btn)
@@ -103,7 +122,7 @@ function buildRail(s: ShellState): void {
 
 /** Slides the glass highlight under the active icon. */
 function placeIndicator(): void {
-  const btn = state?.activeId ? buttons.get(state.activeId) : undefined
+  const btn = state?.activeId && !settings.isOpen ? buttons.get(state.activeId) : undefined
   if (!btn) {
     indicator.style.opacity = '0'
     return
@@ -114,6 +133,7 @@ function placeIndicator(): void {
 }
 
 function render(s: ShellState): void {
+  if (state && s.activeId !== state.activeId) settings.hide()
   const structural = !state || state.ais.map((a) => a.id).join() !== s.ais.map((a) => a.id).join()
   const first = !state
   state = s
