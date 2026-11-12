@@ -13,8 +13,11 @@
 
   --titlebar-h: 48px;
   --gutter: 10px;
-  --rail-w: 68px;
+  /* Rail box width (the glass panel itself; the grid column adds the gutter). */
+  --rail-w: 66px;
   --rail-w-expanded: 196px;
+  --rail-pad: 8px;
+  --rail-icon: 34px;
   --rail-radius: 24px;
   --card-radius: 14px; /* keep in sync with CARD_RADIUS in src/main/views.ts */
   --window-radius: 16px;
