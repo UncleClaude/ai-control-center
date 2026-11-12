@@ -33,7 +33,7 @@
       "name": "ChatGPT",
       "url": "https://chatgpt.com",
       "icon": "chatgpt.svg",
-      "accent": "#10A37F",
+      "accent": "#30333B",
       "adapter": "chatgpt",
       "allowedDomains": [
         "chatgpt.com",

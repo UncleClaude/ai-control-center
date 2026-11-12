@@ -1,4 +1,5 @@
-/* Shared, selector-free touches applied to every skinned site. */
+/* Shared touches applied to every skinned site. The active set (dark or light) is chosen by each
+   site skin through --aicc-glow / --aicc-glow-blend. */
 
 /* Thin, quiet scrollbars. */
 * {
@@ -6,7 +7,29 @@
   scrollbar-color: color-mix(in srgb, currentColor 22%, transparent) transparent;
 }
 
-/* Text selection tinted with the AI's accent (set per site by --aicc-accent). */
+/* Text selection tinted with the AI's accent. */
 ::selection {
-  background: color-mix(in srgb, var(--aicc-accent, #6e7bff) 32%, transparent);
+  background: color-mix(in srgb, var(--aicc-accent) 38%, transparent);
+}
+
+/*
+ * Glass glow: a soft accent light across the whole page, like light through the app's glass.
+ * It never intercepts input; in dark mode "screen" only lightens, so text contrast is preserved.
+ */
+html::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 2147483646;
+  pointer-events: none;
+  background:
+    radial-gradient(70% 55% at 0% 0%, var(--aicc-glow, transparent), transparent 70%),
+    radial-gradient(55% 45% at 100% 100%, color-mix(in oklab, var(--aicc-glow, transparent) 60%, transparent), transparent 70%);
+  mix-blend-mode: var(--aicc-glow-blend, screen);
+  opacity: var(--aicc-glow-opacity, 0.22);
+}
+@media print {
+  html::after {
+    display: none;
+  }
 }

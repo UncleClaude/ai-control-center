@@ -1,57 +1,74 @@
 /*
  * ChatGPT (chatgpt.com). Mode lives on <html data-theme="dark|light">. Surfaces come from the
- * --color-surface* / --color-background-* tokens; the left panel reuses --color-surface, so it is
- * re-scoped there to get its own tone. Variables use !important to beat the site's definitions
- * (including appearance presets).
+ * --color-surface* / --color-background-* tokens (overriding any appearance preset); the left panel
+ * reuses --color-surface, so it is re-scoped there to get its own tone.
  */
-:root {
-  --aicc-accent: #10a37f;
-}
 
+/* 1. Palette set for the current mode */
 html[data-theme='dark'] {
-  --color-surface: var(--aicc-dark-base) !important;
-  --color-surface-secondary: var(--aicc-dark-base) !important;
-  --color-surface-canvas: var(--aicc-dark-base) !important;
-  --color-surface-recovery: var(--aicc-dark-base) !important;
-  --color-token-main-surface-primary: var(--aicc-dark-base) !important;
-  --color-background-panel: var(--aicc-dark-base) !important;
-  --color-surface-elevated: var(--aicc-dark-raised) !important;
-  --color-surface-card: var(--aicc-dark-raised) !important;
-  --color-surface-tertiary: var(--aicc-dark-raised) !important;
-  --color-background-composer-surface: var(--aicc-dark-raised) !important;
-  --color-background-page-search: var(--aicc-dark-raised) !important;
-  --app-shell-sidebar-docked-background: var(--aicc-dark-sidebar) !important;
-  --app-shell-sidebar-divider: var(--aicc-dark-hairline) !important;
+  --aicc-base: var(--aicc-dark-base);
   --aicc-sidebar: var(--aicc-dark-sidebar);
+  --aicc-raised: var(--aicc-dark-raised);
+  --aicc-raised-hover: var(--aicc-dark-raised-hover);
+  --aicc-popover: var(--aicc-dark-popover);
+  --aicc-bubble: var(--aicc-dark-bubble);
+  --aicc-glass: var(--aicc-dark-glass);
+  --aicc-hairline: var(--aicc-dark-hairline);
   --aicc-composer-shadow: var(--aicc-dark-composer-shadow);
+  --aicc-glow: var(--aicc-dark-glow);
+  --aicc-glow-blend: screen;
+  --aicc-glow-opacity: 0.22;
 }
-
 html[data-theme='light'] {
-  --color-surface: var(--aicc-light-base) !important;
-  --color-surface-secondary: var(--aicc-light-base) !important;
-  --color-token-main-surface-primary: var(--aicc-light-base) !important;
-  --color-background-composer-surface: var(--aicc-light-raised) !important;
-  --app-shell-sidebar-docked-background: var(--aicc-light-sidebar) !important;
+  --aicc-base: var(--aicc-light-base);
   --aicc-sidebar: var(--aicc-light-sidebar);
+  --aicc-raised: var(--aicc-light-raised);
+  --aicc-raised-hover: var(--aicc-light-raised-hover);
+  --aicc-popover: var(--aicc-light-popover);
+  --aicc-bubble: var(--aicc-light-bubble);
+  --aicc-glass: var(--aicc-light-glass);
+  --aicc-hairline: var(--aicc-light-hairline);
   --aicc-composer-shadow: var(--aicc-light-composer-shadow);
+  --aicc-glow: var(--aicc-light-glow);
+  --aicc-glow-blend: multiply;
+  --aicc-glow-opacity: 0.16;
 }
 
-/* Sidebar gets its own, slightly lifted tone. */
+/* 2. Mapping onto ChatGPT's tokens */
+html[data-theme] {
+  --color-surface: var(--aicc-base) !important;
+  --color-surface-secondary: var(--aicc-base) !important;
+  --color-surface-canvas: var(--aicc-base) !important;
+  --color-surface-recovery: var(--aicc-base) !important;
+  --color-token-main-surface-primary: var(--aicc-base) !important;
+  --color-background-panel: var(--aicc-base) !important;
+  --color-surface-elevated: var(--aicc-raised) !important;
+  --color-surface-card: var(--aicc-raised) !important;
+  --color-surface-tertiary: var(--aicc-raised) !important;
+  --color-background-page-search: var(--aicc-raised) !important;
+  --color-background-composer-surface: var(--aicc-glass) !important;
+  --color-background-user-message: var(--aicc-bubble) !important;
+  --app-shell-sidebar-docked-background: var(--aicc-sidebar) !important;
+  --app-shell-sidebar-divider: var(--aicc-hairline) !important;
+}
+html[data-theme] body {
+  background-color: var(--aicc-base) !important;
+}
+
+/* Sidebar: own tone, glass sheen and a lit edge. */
 html[data-theme] .app-shell-left-panel {
   --color-surface: var(--aicc-sidebar) !important;
   --color-surface-secondary: var(--aicc-sidebar) !important;
 }
+html[data-theme] .app-shell-left-panel > .bg-surface {
+  background-image: var(--aicc-sidebar-sheen) !important;
+  box-shadow: inset -1px 0 0 var(--aicc-hairline) !important;
+}
 
-/* Composer surface: glass rim instead of the flat elevation. */
+/* Composer surface: frosted glass with the rim. */
 html[data-theme] [data-composer-surface-overflow] {
   --composer-layout-surface-shadow: var(--aicc-composer-shadow) !important;
-  --composer-layout-surface-background: var(--color-background-composer-surface) !important;
-}
-
-/* The page body is painted black by the preset behind the shell. */
-html[data-theme='dark'] body {
-  background-color: var(--aicc-dark-base) !important;
-}
-html[data-theme='light'] body {
-  background-color: var(--aicc-light-base) !important;
+  --composer-layout-surface-background: var(--aicc-glass) !important;
+  --composer-layout-surface-backdrop-filter: blur(22px) saturate(170%) !important;
+  backdrop-filter: blur(22px) saturate(170%);
 }

@@ -1,43 +1,58 @@
 /*
- * Muse (muse.ai). Its design system exposes semantic variables on .dark / .light (Tailwind v4):
- * re-pointing them is enough and survives most UI changes. If a variable disappears, the site simply
- * keeps its own colour.
+ * Muse (muse.ai). Its design system exposes semantic variables on html.dark / .light (Tailwind v4).
+ * Chat bubble colours are set inline on <html style> by the app; !important beats those too.
  */
-:root {
-  --aicc-accent: #0064e0;
+
+/* 1. Palette set for the current mode */
+html.dark {
+  --aicc-base: var(--aicc-dark-base);
+  --aicc-sidebar: var(--aicc-dark-sidebar);
+  --aicc-raised: var(--aicc-dark-raised);
+  --aicc-raised-hover: var(--aicc-dark-raised-hover);
+  --aicc-popover: var(--aicc-dark-popover);
+  --aicc-bubble: var(--aicc-dark-bubble);
+  --aicc-glass: var(--aicc-dark-glass);
+  --aicc-hairline: var(--aicc-dark-hairline);
+  --aicc-composer-shadow: var(--aicc-dark-composer-shadow);
+  --aicc-glow: var(--aicc-dark-glow);
+  --aicc-glow-blend: screen;
+  --aicc-glow-opacity: 0.22;
+}
+html:not(.dark) {
+  --aicc-base: var(--aicc-light-base);
+  --aicc-sidebar: var(--aicc-light-sidebar);
+  --aicc-raised: var(--aicc-light-raised);
+  --aicc-raised-hover: var(--aicc-light-raised-hover);
+  --aicc-popover: var(--aicc-light-popover);
+  --aicc-bubble: var(--aicc-light-bubble);
+  --aicc-glass: var(--aicc-light-glass);
+  --aicc-hairline: var(--aicc-light-hairline);
+  --aicc-composer-shadow: var(--aicc-light-composer-shadow);
+  --aicc-glow: var(--aicc-light-glow);
+  --aicc-glow-blend: multiply;
+  --aicc-glow-opacity: 0.16;
 }
 
-html.dark,
-.dark .dark-elevated {
-  --bg-primary: var(--aicc-dark-base) !important;
-  --bg-secondary: var(--aicc-dark-base) !important;
-  --chat-background: var(--aicc-dark-base) !important;
-  --fill-primary: var(--aicc-dark-raised) !important;
-  --fill-secondary: var(--aicc-dark-raised) !important;
-  --fill-tertiary: var(--aicc-dark-raised-hover) !important;
-  --fill-code-block: var(--aicc-dark-sidebar) !important;
-  --fill-task-banner: var(--aicc-dark-raised) !important;
-  --fill-secondary-elevated-sidebar: var(--aicc-dark-raised-hover) !important;
-  --hatch-agent-bubble-bg: var(--aicc-dark-raised) !important;
-  --fill-divider: var(--aicc-dark-hairline) !important;
+/* 2. Mapping onto Muse's tokens */
+html,
+html .dark-elevated {
+  --bg-primary: var(--aicc-base) !important;
+  --bg-secondary: var(--aicc-base) !important;
+  --chat-background: var(--aicc-base) !important;
+  --fill-primary: var(--aicc-raised) !important;
+  --fill-secondary: var(--aicc-raised) !important;
+  --fill-tertiary: var(--aicc-raised-hover) !important;
+  --fill-code-block: var(--aicc-sidebar) !important;
+  --fill-task-banner: var(--aicc-raised) !important;
+  --fill-secondary-elevated-sidebar: var(--aicc-raised-hover) !important;
+  --hatch-agent-bubble-bg: var(--aicc-raised) !important;
+  --chat-user-bubble: var(--aicc-bubble) !important;
+  --fill-divider: var(--aicc-hairline) !important;
 }
 
-html:not(.dark),
-html.light {
-  --bg-primary: var(--aicc-light-base) !important;
-  --bg-secondary: var(--aicc-light-base) !important;
-  --chat-background: var(--aicc-light-base) !important;
-  --fill-primary: var(--aicc-light-raised) !important;
-  --fill-secondary: var(--aicc-light-raised) !important;
-  --fill-divider: var(--aicc-light-hairline) !important;
-}
-
-/* Composer: solid raised surface with the glass rim (Muse uses a translucent blur fill). */
-html.dark [data-hatch-composer-chrome] {
-  background-color: var(--aicc-dark-raised) !important;
-  box-shadow: var(--aicc-dark-composer-shadow) !important;
-}
-html:not(.dark) [data-hatch-composer-chrome] {
-  background-color: var(--aicc-light-raised) !important;
-  box-shadow: var(--aicc-light-composer-shadow) !important;
+/* Composer: frosted glass with the rim (replaces Muse's grey blur fill). */
+html [data-hatch-composer-chrome] {
+  background-color: var(--aicc-glass) !important;
+  backdrop-filter: blur(22px) saturate(170%) !important;
+  box-shadow: var(--aicc-composer-shadow) !important;
 }

@@ -1,31 +1,38 @@
 /*
- * AI Control Center palette, shared by every site skin. Values echo the app chrome so a site reads
- * as part of the same window. Sites pick light/dark themselves, so skins map their own dark/light
- * selectors onto the --aicc-dark-* / --aicc-light-* sets.
+ * AI Control Center palette, shared by every site skin. Every tone is mixed from the AI's accent
+ * (--aicc-accent, injected by the app from ais.json), so Claude reads warm, Muse blue and ChatGPT
+ * near-black, while staying in the same family as the app chrome. Sites pick light/dark themselves:
+ * skins map their own dark/light selectors onto the --aicc-dark-* / --aicc-light-* sets.
  */
 :root {
-  --aicc-dark-base: #17181d;
-  --aicc-dark-sidebar: #1b1c22;
-  --aicc-dark-raised: #22232a;
-  --aicc-dark-raised-hover: #2a2b33;
-  --aicc-dark-popover: #26272e;
-  --aicc-dark-hairline: rgba(255, 255, 255, 0.09);
-  --aicc-dark-highlight: rgba(255, 255, 255, 0.07);
-  --aicc-dark-shadow: 0 10px 30px rgba(0, 0, 0, 0.35), 0 2px 6px rgba(0, 0, 0, 0.22);
+  --aicc-accent: #6e7bff;
+  /* How strongly the accent colours surfaces (raise for a bolder tint). */
+  --aicc-tint: 11%;
 
-  --aicc-light-base: #f7f8fb;
-  --aicc-light-sidebar: #eff1f6;
-  --aicc-light-raised: #ffffff;
-  --aicc-light-raised-hover: #f4f5f9;
+  --aicc-dark-base: color-mix(in oklab, var(--aicc-accent) var(--aicc-tint), #0f1014);
+  --aicc-dark-sidebar: color-mix(in oklab, var(--aicc-accent) calc(var(--aicc-tint) + 4%), #121318);
+  --aicc-dark-raised: color-mix(in oklab, var(--aicc-accent) calc(var(--aicc-tint) + 3%), #1b1c22);
+  --aicc-dark-raised-hover: color-mix(in oklab, var(--aicc-accent) calc(var(--aicc-tint) + 5%), #23242b);
+  --aicc-dark-popover: color-mix(in oklab, var(--aicc-accent) var(--aicc-tint), #212228);
+  --aicc-dark-bubble: color-mix(in oklab, var(--aicc-accent) 34%, #1b1c22);
+  --aicc-dark-glass: color-mix(in oklab, var(--aicc-dark-raised) 68%, transparent);
+  --aicc-dark-hairline: color-mix(in oklab, var(--aicc-accent) 18%, rgba(255, 255, 255, 0.1));
+  --aicc-dark-glow: color-mix(in oklab, var(--aicc-accent) 55%, transparent);
+  --aicc-dark-composer-shadow: inset 0 0 0 1px var(--aicc-dark-hairline), inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 10px 34px rgba(0, 0, 0, 0.38), 0 0 0 0.5px rgba(0, 0, 0, 0.4);
+
+  --aicc-light-base: color-mix(in oklab, var(--aicc-accent) calc(var(--aicc-tint) * 0.6), #f8f9fb);
+  --aicc-light-sidebar: color-mix(in oklab, var(--aicc-accent) var(--aicc-tint), #eef0f4);
+  --aicc-light-raised: color-mix(in oklab, var(--aicc-accent) 3%, #ffffff);
+  --aicc-light-raised-hover: color-mix(in oklab, var(--aicc-accent) 6%, #f6f7fa);
   --aicc-light-popover: #ffffff;
-  --aicc-light-hairline: rgba(16, 20, 40, 0.09);
-  --aicc-light-highlight: rgba(255, 255, 255, 0.95);
-  --aicc-light-shadow: 0 10px 30px rgba(24, 32, 64, 0.1), 0 2px 6px rgba(24, 32, 64, 0.06);
+  --aicc-light-bubble: color-mix(in oklab, var(--aicc-accent) 16%, #ffffff);
+  --aicc-light-glass: color-mix(in oklab, var(--aicc-light-raised) 72%, transparent);
+  --aicc-light-hairline: color-mix(in oklab, var(--aicc-accent) 14%, rgba(16, 20, 40, 0.1));
+  --aicc-light-glow: color-mix(in oklab, var(--aicc-accent) 30%, transparent);
+  --aicc-light-composer-shadow: inset 0 0 0 1px var(--aicc-light-hairline), inset 0 1px 0 #fff,
+    0 10px 30px rgba(24, 32, 64, 0.1);
 
   --aicc-radius-composer: 24px;
-  /* Composer: hairline + top highlight + soft lift, the glass "pill" look. */
-  --aicc-dark-composer-shadow: inset 0 0 0 1px var(--aicc-dark-hairline), inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 8px 28px rgba(0, 0, 0, 0.32);
-  --aicc-light-composer-shadow: inset 0 0 0 1px var(--aicc-light-hairline), inset 0 1px 0 #fff,
-    0 8px 28px rgba(24, 32, 64, 0.1);
+  --aicc-sidebar-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.045), transparent 38%);
 }

@@ -45,6 +45,7 @@ export function loadAiConfig(): AiConfig[] {
     console.error(`[config] ${file} invalide, utilisation des valeurs par défaut :`, error)
     parsed = ConfigSchema.parse(defaults)
   }
+  const builtIn = new Map(ConfigSchema.parse(defaults).ais.map((a) => [a.id, a]))
   return parsed.ais
     .filter((ai) => ai.enabled)
     .map((ai) => {
@@ -53,7 +54,8 @@ export function loadAiConfig(): AiConfig[] {
       return {
         ...ai,
         allowedDomains,
-        accent: ai.accent ?? hashColor(ai.name),
+        // Configs written before a field existed fall back to the bundled default for that id.
+        accent: ai.accent ?? builtIn.get(ai.id)?.accent ?? hashColor(ai.name),
         iconDataUrl: resolveIcon(ai.icon, ai.name, dirname(file)),
       }
     })

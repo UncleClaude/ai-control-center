@@ -43,7 +43,9 @@ export class SkinManager {
   }
 
   private cssFor(ai: AiConfig): string {
-    const parts = [palette, base, BUILT_IN[ai.adapter ?? ai.id] ?? '']
+    // The accent comes from ais.json, so every tone follows the AI's own colour.
+    const accent = `:root { --aicc-accent: ${ai.accent}; }`
+    const parts = [palette, accent, base, BUILT_IN[ai.adapter ?? ai.id] ?? '']
     const user = join(userSkinDir(), `${ai.id}.css`)
     if (existsSync(user)) {
       try {

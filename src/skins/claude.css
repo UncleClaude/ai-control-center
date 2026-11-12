@@ -1,64 +1,100 @@
 /*
  * Claude (claude.ai). Mode lives on <html data-mode="dark|light|system">. Its design system (cds)
- * exposes --cds-surface-* / --cds-page-bg and the frame uses --df-sidebar-bg / --df-bg-page.
- * Variables are set with !important so they beat the site's own definitions regardless of order.
+ * exposes --cds-surface-* / --cds-page-bg; the frame uses --df-sidebar-bg / --df-bg-page.
+ * Step 1 picks the dark or light palette set, step 2 maps it onto Claude's variables.
+ * Variables use !important so they beat the site's own definitions regardless of order.
  */
-:root {
-  --aicc-accent: #d97757;
-}
 
-html[data-mode='dark'],
-html[data-mode='dark'] .cds-root {
-  --cds-page-bg: var(--aicc-dark-base) !important;
-  --df-bg-page: var(--aicc-dark-base) !important;
-  --cds-surface-0: var(--aicc-dark-base) !important;
-  --cds-surface-1: var(--aicc-dark-base) !important;
-  --cds-surface-2: var(--aicc-dark-raised) !important;
-  --cds-surface-3: var(--aicc-dark-raised) !important;
-  --cds-surface-panel: var(--aicc-dark-raised) !important;
-  --cds-surface-popover: var(--aicc-dark-popover) !important;
-  --df-sidebar-bg: var(--aicc-dark-sidebar) !important;
+/* 1. Palette set for the current mode */
+html[data-mode='dark'] {
+  --aicc-base: var(--aicc-dark-base);
+  --aicc-sidebar: var(--aicc-dark-sidebar);
+  --aicc-raised: var(--aicc-dark-raised);
+  --aicc-raised-hover: var(--aicc-dark-raised-hover);
+  --aicc-popover: var(--aicc-dark-popover);
+  --aicc-bubble: var(--aicc-dark-bubble);
+  --aicc-glass: var(--aicc-dark-glass);
+  --aicc-hairline: var(--aicc-dark-hairline);
   --aicc-composer-shadow: var(--aicc-dark-composer-shadow);
+  --aicc-glow: var(--aicc-dark-glow);
+  --aicc-glow-blend: screen;
+  --aicc-glow-opacity: 0.22;
+}
+html[data-mode='light'] {
+  --aicc-base: var(--aicc-light-base);
+  --aicc-sidebar: var(--aicc-light-sidebar);
+  --aicc-raised: var(--aicc-light-raised);
+  --aicc-raised-hover: var(--aicc-light-raised-hover);
+  --aicc-popover: var(--aicc-light-popover);
+  --aicc-bubble: var(--aicc-light-bubble);
+  --aicc-glass: var(--aicc-light-glass);
+  --aicc-hairline: var(--aicc-light-hairline);
+  --aicc-composer-shadow: var(--aicc-light-composer-shadow);
+  --aicc-glow: var(--aicc-light-glow);
+  --aicc-glow-blend: multiply;
+  --aicc-glow-opacity: 0.16;
 }
 @media (prefers-color-scheme: dark) {
-  html[data-mode='system'],
-  html[data-mode='system'] .cds-root {
-    --cds-page-bg: var(--aicc-dark-base) !important;
-    --df-bg-page: var(--aicc-dark-base) !important;
-    --cds-surface-0: var(--aicc-dark-base) !important;
-    --cds-surface-1: var(--aicc-dark-base) !important;
-    --cds-surface-2: var(--aicc-dark-raised) !important;
-    --cds-surface-3: var(--aicc-dark-raised) !important;
-    --cds-surface-panel: var(--aicc-dark-raised) !important;
-    --cds-surface-popover: var(--aicc-dark-popover) !important;
-    --df-sidebar-bg: var(--aicc-dark-sidebar) !important;
+  html[data-mode='system'] {
+    --aicc-base: var(--aicc-dark-base);
+    --aicc-sidebar: var(--aicc-dark-sidebar);
+    --aicc-raised: var(--aicc-dark-raised);
+    --aicc-raised-hover: var(--aicc-dark-raised-hover);
+    --aicc-popover: var(--aicc-dark-popover);
+    --aicc-bubble: var(--aicc-dark-bubble);
+    --aicc-glass: var(--aicc-dark-glass);
+    --aicc-hairline: var(--aicc-dark-hairline);
     --aicc-composer-shadow: var(--aicc-dark-composer-shadow);
+    --aicc-glow: var(--aicc-dark-glow);
+    --aicc-glow-blend: screen;
+    --aicc-glow-opacity: 0.22;
   }
-}
-
-html[data-mode='light'],
-html[data-mode='light'] .cds-root {
-  --cds-page-bg: var(--aicc-light-base) !important;
-  --df-bg-page: var(--aicc-light-base) !important;
-  --cds-surface-1: var(--aicc-light-base) !important;
-  --cds-surface-3: var(--aicc-light-raised) !important;
-  --df-sidebar-bg: var(--aicc-light-sidebar) !important;
-  --aicc-composer-shadow: var(--aicc-light-composer-shadow);
 }
 @media (prefers-color-scheme: light) {
-  html[data-mode='system'],
-  html[data-mode='system'] .cds-root {
-    --cds-page-bg: var(--aicc-light-base) !important;
-    --df-bg-page: var(--aicc-light-base) !important;
-    --cds-surface-1: var(--aicc-light-base) !important;
-    --cds-surface-3: var(--aicc-light-raised) !important;
-    --df-sidebar-bg: var(--aicc-light-sidebar) !important;
+  html[data-mode='system'] {
+    --aicc-base: var(--aicc-light-base);
+    --aicc-sidebar: var(--aicc-light-sidebar);
+    --aicc-raised: var(--aicc-light-raised);
+    --aicc-raised-hover: var(--aicc-light-raised-hover);
+    --aicc-popover: var(--aicc-light-popover);
+    --aicc-bubble: var(--aicc-light-bubble);
+    --aicc-glass: var(--aicc-light-glass);
+    --aicc-hairline: var(--aicc-light-hairline);
     --aicc-composer-shadow: var(--aicc-light-composer-shadow);
+    --aicc-glow: var(--aicc-light-glow);
+    --aicc-glow-blend: multiply;
+    --aicc-glow-opacity: 0.16;
   }
 }
 
-/* Composer card: rounder, with the glass rim. */
-[data-composer-card-holder] .bg-surface-3 {
+/* 2. Mapping onto Claude's tokens (re-applied on nested .cds-root scopes) */
+html[data-mode],
+html[data-mode] .cds-root {
+  --cds-page-bg: var(--aicc-base) !important;
+  --df-bg-page: var(--aicc-base) !important;
+  --cds-surface-0: var(--aicc-base) !important;
+  --cds-surface-1: var(--aicc-base) !important;
+  --cds-surface-2: var(--aicc-raised) !important;
+  --cds-surface-3: var(--aicc-raised) !important;
+  --cds-surface-panel: var(--aicc-raised) !important;
+  --cds-surface-popover: var(--aicc-popover) !important;
+  --cds-border-line: var(--aicc-hairline) !important;
+  --df-sidebar-bg: var(--aicc-sidebar) !important;
+}
+
+/* Sidebar: glass sheen and a lit edge. */
+html[data-mode] .dframe-sidebar {
+  /* The sidebar re-declares its own --df-sidebar-bg, so it is set here too. */
+  --df-sidebar-bg: var(--aicc-sidebar) !important;
+  background-color: var(--aicc-sidebar) !important;
+  background-image: var(--aicc-sidebar-sheen) !important;
+  box-shadow: inset -1px 0 0 var(--aicc-hairline) !important;
+}
+
+/* Composer card: frosted glass, rounder, with the rim. */
+html[data-mode] [data-composer-card-holder] .bg-surface-3 {
+  background-color: var(--aicc-glass) !important;
+  backdrop-filter: blur(22px) saturate(170%);
   border-radius: var(--aicc-radius-composer) !important;
   box-shadow: var(--aicc-composer-shadow) !important;
 }
