@@ -6,6 +6,11 @@
   "description": "Desktop app gathering Muse, Claude and ChatGPT web apps in one glass window.",
   "license": "MIT",
   "author": "AI Control Center contributors",
+  "homepage": "https://github.com/UncleClaude/ai-control-center",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/UncleClaude/ai-control-center.git"
+  },
   "private": true,
   "main": "out/main/index.js",
   "scripts": {

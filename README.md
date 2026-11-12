@@ -1,61 +1,88 @@
 # AI Control Center
 
-Une application de bureau qui rassemble **Muse (Meta)**, **Claude** et **ChatGPT** dans une seule fenêtre en verre, avec leurs sites officiels et tes abonnements existants : pas d'API, pas de clé.
+A desktop app that brings **Muse (Meta)**, **Claude** and **ChatGPT** together in one glass window. It uses their official websites and the subscriptions you already have: no API, no keys.
 
-- Une vue par IA, chacune avec **sa session isolée et persistante** : tu te connectes une fois (y compris avec Google), tu restes connecté après redémarrage.
-- **Bascule instantanée** : les vues restent vivantes en arrière-plan, une réponse en cours n'est jamais interrompue.
-- **Notifications natives** quand une IA a fini ou **a besoin de toi** (question, approbation), avec badge et clic qui ramène sur la bonne conversation.
-- Interface **Liquid Glass** : vibrancy native sur macOS, flou du compositeur sur Linux, repli soigné sinon. Les sites sont habillés aux couleurs de leur IA (Claude orangé, Muse bleu, ChatGPT noir).
-- Icône dans la **barre système** (StatusNotifierItem sous Linux, icône template sur macOS).
-- Liste des IA dans un **fichier de config** : on en ajoute une sans toucher au code.
+> **Vibe-coded.** This app was built almost entirely through conversation with an AI coding assistant (Claude Code), with a human steering, testing and deciding. The code has been read and exercised, but not audited line by line. Use it at your own risk and read the source if that matters to you.
 
-Plateformes : **Arch Linux / CachyOS** (Wayland et X11 ; KDE, Hyprland, GNOME) et **macOS** (Apple Silicon en priorité).
+- **One view per AI**, each with its **own isolated, persistent session**. Sign in once, Google sign-in included, and you stay signed in across restarts.
+- **Instant switching.** Views stay alive in the background, so a running answer is never interrupted.
+- **Native notifications** when an AI is done or **needs you** (a question or an approval). The rail icon breathes until you look, and a click brings you back to the right conversation.
+- **Liquid Glass UI.** Native vibrancy on macOS, compositor blur on Linux, a clean tinted fallback otherwise. Each site is reskinned in its AI's colour: warm orange for Claude, blue for Muse, near-black for ChatGPT.
+- **System tray icon**: StatusNotifierItem on Linux, a template icon on macOS.
+- **Lots of settings**: theme, tint, rail order, per-AI colour and zoom, do not disturb, launch at login, a global shortcut…
+- **AI list in a config file**: add a new AI without touching the code.
 
----
-
-## Sommaire
-
-1. [Installer les dépendances](#1-installer-les-dépendances)
-2. [Lancer en développement](#2-lancer-en-développement)
-3. [Construire les paquets](#3-construire-les-paquets) (AppImage, PKGBUILD, dmg)
-4. [Effet verre : configurer le flou](#4-effet-verre--configurer-le-flou) (KDE, Hyprland)
-5. [Icône de la barre système](#5-icône-de-la-barre-système)
-6. [Utilisation](#6-utilisation) (raccourcis, réglages)
-7. [Ajouter une IA](#7-ajouter-une-ia)
-8. [Notifications : comment ça marche, comment réparer](#8-notifications--comment-ça-marche-comment-réparer)
-9. [Habillage des sites](#9-habillage-des-sites)
-10. [Dépannage](#10-dépannage)
-11. [Structure du projet](#11-structure-du-projet)
+Platforms: **Arch Linux / CachyOS** (Wayland and X11; KDE, Hyprland, GNOME) and **macOS** (Apple Silicon first, Intel too). The interface is in French.
 
 ---
 
-## 1. Installer les dépendances
+## Contents
+
+0. [Install a release](#0-install-a-release)
+1. [Dependencies](#1-dependencies)
+2. [Run in development](#2-run-in-development)
+3. [Build packages](#3-build-packages) (AppImage, PKGBUILD, dmg)
+4. [Glass effect: setting up blur](#4-glass-effect-setting-up-blur) (KDE, Hyprland)
+5. [Tray icon](#5-tray-icon)
+6. [Usage](#6-usage) (shortcuts, settings)
+7. [Adding an AI](#7-adding-an-ai)
+8. [Notifications: how they work, how to fix them](#8-notifications-how-they-work-how-to-fix-them)
+9. [Site skins](#9-site-skins)
+10. [Troubleshooting](#10-troubleshooting)
+11. [Project layout](#11-project-layout)
+
+---
+
+## 0. Install a release
+
+Download the files from the [Releases page](https://github.com/UncleClaude/ai-control-center/releases).
+
+**Linux (AppImage)**
+
+```bash
+chmod +x AI-Control-Center-*-x86_64.AppImage
+./AI-Control-Center-*-x86_64.AppImage
+```
+
+The AppImage needs `fuse2` (`sudo pacman -S fuse2`). Alternatively, run it with `--appimage-extract-and-run`. To get it into your application menu, use a tool like Gear Lever or AppImageLauncher, or write a `.desktop` file in `~/.local/share/applications/` whose `Exec=` points to the AppImage and with `StartupWMClass=ai-control-center`.
+
+**macOS (dmg)**
+
+Pick `arm64` for Apple Silicon, `x64` for Intel. Drag the app into Applications. The app is **not signed**, so on first launch right-click it → Open, or run:
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/AI Control Center.app"
+```
+
+---
+
+## 1. Dependencies
 
 ### Arch Linux / CachyOS (pacman)
 
-Pour développer et construire :
+To develop and build:
 
 ```bash
 sudo pacman -S --needed nodejs npm git base-devel librsvg
 ```
 
-Pour exécuter :
+To run:
 
-| Paquet | Pourquoi |
+| Package | Why |
 |---|---|
-| `electron44` | moteur de l'app installée par le PKGBUILD (tiré automatiquement) |
-| `libnotify` | notifications natives |
-| `fuse2` | lancer l'AppImage (sinon : `--appimage-extract-and-run`) |
+| `electron44` | runtime for the app installed by the PKGBUILD (pulled in automatically) |
+| `libnotify` | native notifications |
+| `fuse2` | running the AppImage (otherwise: `--appimage-extract-and-run`) |
 
 ```bash
 sudo pacman -S --needed electron44 libnotify fuse2
 ```
 
-Optionnel :
+Optional:
 
-- KDE, vrai flou derrière la fenêtre : `kwin-effects-better-blur-dx-git` (AUR), voir [§4](#kde-plasma-kwin).
-- GNOME, icône du tray : `gnome-shell-extension-appindicator`.
-- Hyprland, icône du tray : `waybar` avec le module `tray`.
+- KDE, real blur behind the window: `kwin-effects-better-blur-dx-git` (AUR), see [§4](#kde-plasma-kwin).
+- GNOME, tray icon: `gnome-shell-extension-appindicator`.
+- Hyprland, tray icon: `waybar` with the `tray` module.
 
 ### macOS (Homebrew)
 
@@ -63,138 +90,141 @@ Optionnel :
 brew install node git
 ```
 
-Xcode Command Line Tools (`xcode-select --install`) est nécessaire pour construire le `.dmg`.
+Building the `.dmg` needs the Xcode Command Line Tools (`xcode-select --install`).
 
 ---
 
-## 2. Lancer en développement
+## 2. Run in development
 
 ```bash
 npm install
 npm run dev
 ```
 
-Le processus principal et les preloads sont recompilés à chaque lancement. L'interface de l'app (le rail, les réglages) se recharge à chaud. Après une modification de `src/main`, `src/preload`, `src/adapters` ou `src/skins`, **quitte l'app** (Ctrl+Q, ou tray → Quitter) et relance.
+The main process and the preloads are rebuilt at every launch, and the app's own UI (rail, settings) hot-reloads. After changing `src/main`, `src/preload`, `src/adapters` or `src/skins`, run `npm run dev` again: the new instance replaces the running one.
 
-> Fermer la fenêtre la **masque dans le tray** : l'app tourne toujours. Pour vraiment quitter : Ctrl+Q (Cmd+Q sur macOS) ou tray → Quitter.
+> Closing the window **hides it in the tray**; the app keeps running. To really quit: Ctrl+Q (Cmd+Q on macOS) or tray → Quitter.
 
-Variables utiles :
+Useful variables:
 
-| Variable | Effet |
+| Variable | Effect |
 |---|---|
-| `AICC_PROFILE=test` | profil séparé (sessions, verrou d'instance unique) : pour tester sans toucher à tes connexions |
-| `AICC_DEBUG=1` | trace chaque décision de notification dans le terminal |
-| `AICC_GLASS=glass\|solid\|auto` | force le mode de verre (prioritaire sur le réglage) |
-| `AICC_SKINS=0` | désactive l'habillage des sites |
+| `AICC_PROFILE=test` | separate profile (sessions, single-instance lock), to test without touching your sign-ins |
+| `AICC_DEBUG=1` | logs every notification decision in the terminal |
+| `AICC_GLASS=glass\|solid\|auto` | forces the glass mode (overrides the setting) |
+| `AICC_SKINS=0` | disables site skins |
 
 ```bash
-npm run dev:inspect     # comme dev, avec le port de débogage Chromium 9333 (inspection des sites)
-npm run typecheck       # vérification TypeScript
+npm run dev:inspect     # like dev, with the Chromium debugging port 9333 (inspect the sites)
+npm run typecheck       # TypeScript check
 ```
 
-Où sont les données :
+Where the data lives:
 
 | | Linux | macOS |
 |---|---|---|
-| Profil (sessions, cookies) | `~/.config/ai-control-center/` | `~/Library/Application Support/ai-control-center/` |
-| Liste des IA | `…/ais.json` | idem |
-| État et réglages | `…/state.json` | idem |
-| Habillages perso | `…/skins/<id>.css` | idem |
+| Profile (sessions, cookies) | `~/.config/ai-control-center/` | `~/Library/Application Support/ai-control-center/` |
+| AI list | `…/ais.json` | same |
+| State and settings | `…/state.json` | same |
+| Custom skins | `…/skins/<id>.css` | same |
 
 ---
 
-## 3. Construire les paquets
+## 3. Build packages
 
 ### AppImage (Linux)
 
 ```bash
 npm run dist:linux
-# → dist/AI-Control-Center-0.1.0-x86_64.AppImage
-chmod +x dist/AI-Control-Center-*.AppImage
-./dist/AI-Control-Center-*.AppImage
+# → dist/AI-Control-Center-<version>-x86_64.AppImage
 ```
 
-L'AppImage embarque son propre Electron (environ 120 Mo).
+The AppImage bundles its own Electron (about 120 MB).
 
-### Paquet Arch (PKGBUILD)
+### Arch package (PKGBUILD)
 
-Le PKGBUILD construit le paquet à partir du **dernier commit** du dépôt et utilise l'Electron du système (`electron44`) : le paquet fait environ 1 Mo et profite des mises à jour de sécurité de Chromium par pacman.
+The PKGBUILD builds the package from the repository's **latest commit** and runs on the system Electron (`electron44`). The package is about 1 MB and gets Chromium security updates through pacman.
 
 ```bash
 cd packaging/arch
 makepkg -si
 ```
 
-Ce qui est installé :
+What gets installed:
 
-- `/usr/bin/ai-control-center` : lanceur (`electron44 --class=ai-control-center …/app.asar`) ;
-- `/usr/lib/ai-control-center/` : `app.asar` et ressources ;
-- l'entrée de menu `.desktop` et les icônes hicolor.
+- `/usr/bin/ai-control-center`: launcher (`electron44 --class=ai-control-center …/app.asar`);
+- `/usr/lib/ai-control-center/`: `app.asar` and resources;
+- the `.desktop` menu entry and hicolor icons.
 
-Pour ajouter des options Chromium, une par ligne, crée `~/.config/ai-control-center-flags.conf`. Par exemple, pour forcer X11 :
+To pass Chromium flags, create `~/.config/ai-control-center-flags.conf` with one flag per line. For example, to force X11:
 
 ```
 --ozone-platform=x11
 ```
 
-> Pense à committer tes changements avant `makepkg` : il ne prend que `HEAD`.
+> Commit your changes before running `makepkg`: it only takes `HEAD`.
 
 ### .dmg (macOS)
 
-À lancer **sur un Mac** : le dmg ne se construit pas depuis Linux.
+This has to run **on a Mac**; the dmg cannot be built from Linux.
 
 ```bash
 npm install
 npm run dist:mac
-# → dist/AI-Control-Center-0.1.0-arm64.dmg et -x64.dmg
+# → dist/AI-Control-Center-<version>-arm64.dmg and -x64.dmg
 ```
 
-Le paquet n'est **pas signé** par défaut. Au premier lancement, clic droit sur l'app → Ouvrir, ou :
+To sign and notarize, set `CSC_LINK` / `CSC_KEY_PASSWORD` (or `CSC_NAME`) and remove `identity: null` from `electron-builder.yml`.
+
+### Releases (GitHub Actions)
+
+`.github/workflows/release.yml` builds the AppImage on Ubuntu and both dmgs on macOS, then attaches them to a GitHub release. To publish a version:
 
 ```bash
-xattr -dr com.apple.quarantine "/Applications/AI Control Center.app"
+npm version patch          # or minor / major: bumps package.json and creates the v* tag
+git push --follow-tags
 ```
 
-Pour signer et notariser, définis `CSC_LINK` / `CSC_KEY_PASSWORD` (ou `CSC_NAME`) et retire `identity: null` dans `electron-builder.yml`.
+The workflow can also be started by hand (Actions → Release → Run workflow); it then builds without publishing and keeps the files as workflow artifacts.
 
 ---
 
-## 4. Effet verre : configurer le flou
+## 4. Glass effect: setting up blur
 
-L'interface de l'app (rail, barre d'outils, réglages) est en verre. **Le contenu des sites reste toujours opaque et lisible.** Au démarrage, le terminal affiche le mode choisi, par exemple `[glass] mode blur (Hyprland)`.
+The app's own UI (rail, toolbar, settings) is glass. **Site content always stays opaque and readable.** At startup the terminal prints the chosen mode, for example `[glass] mode blur (Hyprland)`.
 
-| Mode | Quand | Rendu |
+| Mode | When | Result |
 |---|---|---|
-| `vibrancy` | macOS | vrai flou du bureau (NSVisualEffectView) |
-| `blur` | Hyprland ; KDE avec un plugin de flou forcé | fenêtre transparente, le compositeur floute |
-| `tint` | Wayland sans flou (KDE sans plugin…) | repli : dégradé semi-opaque teinté |
-| `solid` | pas de compositeur, ou réglage « Opaque » | fond opaque, même dégradé |
+| `vibrancy` | macOS | real desktop blur (NSVisualEffectView) |
+| `blur` | Hyprland; KDE with a force-blur plugin | transparent window, blurred by the compositor |
+| `tint` | Wayland without blur (KDE without the plugin…) | fallback: opaque window tinted with the active AI's colour |
+| `solid` | no compositor, or the "Opaque" setting | opaque background |
 
-Le mode se change dans **Réglages → Effet de verre** (Auto / Verre / Opaque). Il s'applique au prochain lancement.
+Change the mode in **Réglages → Apparence → Effet de verre** (Auto / Verre / Opaque). It applies at the next launch.
 
 ### KDE Plasma (KWin)
 
-KWin ne floute que les fenêtres qui le demandent via un protocole Wayland qu'Electron ne parle pas. Il faut donc un effet capable de **forcer le flou** par classe de fenêtre :
+KWin only blurs windows that ask for it through a Wayland protocol Electron does not speak. You need an effect that can **force blur** per window class:
 
-1. Installer l'effet depuis l'AUR :
+1. Install the effect from the AUR:
    ```bash
-   paru -S kwin-effects-better-blur-dx-git   # ou yay -S …
+   paru -S kwin-effects-better-blur-dx-git   # or yay -S …
    ```
-   Sous X11, utiliser `kwin-effects-better-blur-dx-x11`.
-2. **Paramètres système → Gestionnaire de fenêtres → Effets de bureau** :
-   - désactiver l'effet **Flou** d'origine ;
-   - activer **Better Blur** et ouvrir sa configuration.
-3. Dans **Force blur**, ajouter la classe de fenêtre :
+   On X11, use `kwin-effects-better-blur-dx-x11`.
+2. **System Settings → Window Management → Desktop Effects**:
+   - disable the stock **Blur** effect;
+   - enable **Better Blur** and open its settings.
+3. Under **Force blur**, add the window class:
    ```
    ai-control-center
    ```
-4. Relancer l'app : le terminal doit afficher `[glass] mode blur (KWin + plugin de flou forcé)`.
+4. Restart the app; the terminal should print `[glass] mode blur (KWin + plugin de flou forcé)`.
 
-Sans plugin, l'app reste en mode `tint` : propre, mais sans flou du bureau.
+Without the plugin, the app stays in `tint` mode: clean, but no desktop blur.
 
 ### Hyprland
 
-Hyprland floute les fenêtres transparentes dès que le flou est activé. Dans `~/.config/hypr/hyprland.conf` :
+Hyprland blurs transparent windows as soon as blur is enabled. In `~/.config/hypr/hyprland.conf`:
 
 ```ini
 decoration {
@@ -207,90 +237,91 @@ decoration {
     }
 }
 
-# Garder l'app pleinement opaque côté compositeur : la transparence vient de l'app elle-même,
-# une opacité globale (active/inactive_opacity) ne doit pas s'y ajouter.
+# Keep the app fully opaque at the compositor level: the transparency comes from the app itself,
+# a global opacity (active/inactive_opacity) must not stack on top of it.
 windowrulev2 = opacity 1.0 override 1.0 override, class:^(ai-control-center)$
 ```
 
-> Selon ta version de Hyprland, la syntaxe des règles peut être `windowrule` au lieu de `windowrulev2`. La classe à cibler est toujours `ai-control-center`. Si tu as une règle `noblur` globale, exclus cette classe.
+> Depending on your Hyprland version, the rule keyword may be `windowrule` instead of `windowrulev2`. The class to target is always `ai-control-center`. If you have a global `noblur` rule, exclude this class.
 
 ---
 
-## 5. Icône de la barre système
+## 5. Tray icon
 
-| Environnement | Ce qu'il faut |
+| Environment | What you need |
 |---|---|
-| KDE Plasma (Wayland / X11) | rien, StatusNotifierItem natif |
-| Hyprland | `waybar` avec le module `tray` (voir ci-dessous) |
-| GNOME | extension **AppIndicator** : `sudo pacman -S gnome-shell-extension-appindicator` puis l'activer dans Extensions |
-| macOS | rien, icône monochrome dans la barre des menus |
+| KDE Plasma (Wayland / X11) | nothing, native StatusNotifierItem |
+| Hyprland | `waybar` with the `tray` module (see below) |
+| GNOME | the **AppIndicator** extension: `sudo pacman -S gnome-shell-extension-appindicator`, then enable it in Extensions |
+| macOS | nothing, monochrome icon in the menu bar |
 
-Sous Linux, Electron publie l'icône via **StatusNotifierItem** (D-Bus) : aucune bibliothèque `libappindicator` n'est nécessaire.
+On Linux, Electron publishes the icon through **StatusNotifierItem** (D-Bus); no `libappindicator` is needed.
 
-Waybar (`~/.config/waybar/config.jsonc`) :
+Waybar (`~/.config/waybar/config.jsonc`):
 
 ```jsonc
 "modules-right": ["tray", "clock"],
 "tray": { "icon-size": 18, "spacing": 8 }
 ```
 
-Comportement :
+Behaviour:
 
-- **Clic** sur l'icône : affiche ou masque la fenêtre. Sur macOS, le clic ouvre le menu.
-- **Menu** : ouvrir directement une IA, l'option « Garder dans la barre système à la fermeture », Quitter.
-- Une **pastille** apparaît sur l'icône tant qu'une réponse n'a pas été consultée, et le menu affiche le compte par IA.
+- **Clicking** the icon shows or hides the window. On macOS a click opens the menu.
+- **The menu** lets you open an AI directly, toggle "Do not disturb" and "Keep in the tray when closing", and quit.
+- A **dot** appears on the icon while an answer is unread, and the menu shows the count per AI.
 
 ---
 
-## 6. Utilisation
+## 6. Usage
 
-### Raccourcis
+### Shortcuts
 
-Sur Linux, *Mod* = Ctrl ; sur macOS, *Mod* = Cmd. Les raccourcis utilisent les touches physiques, donc Mod+1 marche aussi en **AZERTY**.
+*Mod* is Ctrl on Linux and Cmd on macOS. Shortcuts use physical keys, so Mod+1 also works on **AZERTY** keyboards.
 
-| Raccourci | Action |
+| Shortcut | Action |
 |---|---|
-| Mod+1, Mod+2, Mod+3… | changer d'IA |
-| Mod+R | recharger la vue active (Mod+Shift+R : sans cache) |
-| Mod+[ / Mod+] | précédent / suivant dans l'historique de la vue |
-| Alt+← / Alt+→ (Linux) | précédent / suivant (pratique en AZERTY, où [ et ] demandent AltGr) |
-| Mod+= / Mod+- / Mod+0 | zoom avant / arrière / taille réelle de l'IA affichée (mémorisé par IA) |
-| Mod+, | réglages |
-| Ctrl+Q (Linux), Cmd+Q (macOS) | quitter |
-| F12 / Mod+Shift+I | outils de développement de la vue active |
-| Échap | fermer les réglages |
+| Mod+1, Mod+2, Mod+3… | switch AI |
+| Mod+R | reload the active view (Mod+Shift+R: bypass cache) |
+| Mod+[ / Mod+] | back / forward in the view's history |
+| Alt+← / Alt+→ (Linux) | back / forward (handy on AZERTY, where [ and ] need AltGr) |
+| Mod+= / Mod+- / Mod+0 | zoom in / out / reset for the active AI (remembered per AI) |
+| Mod+, | settings |
+| Ctrl+Q (Linux), Cmd+Q (macOS) | quit |
+| F12 / Mod+Shift+I | developer tools for the active view |
+| Esc | close the settings |
+| Global shortcut (optional) | show / hide the window from anywhere, `CommandOrControl+Shift+Space` by default |
 
-### Réglages (engrenage en bas du rail)
+### Settings (gear icon at the bottom of the rail)
 
-- **Par IA** :
-  - afficher ou masquer l'IA (une IA masquée n'est pas chargée) et changer l'ordre du rail avec les flèches ; l'ordre détermine aussi Mod+1, Mod+2… ;
-  - notifications, son, habillage aux couleurs de l'app ;
-  - couleur personnelle : elle remplace celle de `ais.json` dans le rail, la teinte de la fenêtre et l'habillage du site ; ↺ revient à l'originale ;
-  - zoom de la page, de 50 à 200 % ;
-  - **Tester** : affiche une notification d'exemple ;
-  - **Vider le cache** : recharge la page sans cache, la connexion est conservée ;
-  - **Se déconnecter** : efface cookies et données du site. Il faut cliquer deux fois pour confirmer.
-- **Apparence** :
-  - thème Système / Clair / Sombre, appliqué à l'app et aux sites qui suivent le thème du système ;
-  - teinte des surfaces (0–30 %, aperçu en direct) ;
-  - effet de verre (Auto / Verre / Opaque, au prochain lancement) ;
-  - réduire les animations : les icônes non lues brillent sans respirer.
-- **Notifications** : *Ne pas déranger* coupe popups et sons, mais les icônes signalent toujours les réponses non lues. L'option est aussi dans le menu de la barre système.
-- **Démarrage et fenêtre** :
-  - **lancer à l'ouverture de session**, éventuellement masqué dans la barre système. Sur Linux, une entrée `~/.config/autostart/ai-control-center.desktop` est créée. Cette option demande l'AppImage ou le paquet Arch, pas les sources ;
-  - IA ouverte au démarrage (la dernière, ou une IA fixe) ;
-  - garder l'app dans la barre système à la fermeture ;
-  - **raccourci global** pour afficher ou masquer la fenêtre depuis n'importe où (`CommandOrControl+Shift+Space` par défaut, modifiable). Sous Wayland, il passe par le portail XDG GlobalShortcuts : KDE et Hyprland (avec `xdg-desktop-portal-hyprland`) demandent une confirmation la première fois.
-- **Fichiers** : accès direct à `ais.json`, au dossier d'habillages et au dossier de données.
-- **Raccourcis et version** : aide-mémoire des raccourcis, versions de l'app, d'Electron et de Chromium.
+- **Per AI**:
+  - show or hide the AI (a hidden AI is not loaded) and reorder the rail with the arrows; the order also drives Mod+1, Mod+2…;
+  - notifications, sound, app-coloured skin;
+  - custom colour: replaces the `ais.json` colour in the rail, the window tint and the site skin; ↺ restores the original;
+  - page zoom, 50 to 200 %;
+  - **Tester** shows a sample notification;
+  - **Vider le cache** reloads the page without cache and keeps you signed in;
+  - **Se déconnecter** wipes the site's cookies and data. It needs two clicks to confirm.
+- **Appearance**:
+  - System / Light / Dark theme, applied to the app and to sites that follow the system theme;
+  - surface tint (0–30 %, live preview);
+  - glass effect (Auto / Glass / Opaque, at next launch);
+  - reduce motion: unread icons glow instead of breathing.
+- **Notifications**: *Do not disturb* silences popups and sounds; icons still mark unread answers. It is also in the tray menu.
+- **Startup and window**:
+  - **launch at login**, optionally hidden in the tray. On Linux this writes `~/.config/autostart/ai-control-center.desktop`. It needs the AppImage or the Arch package, not a source checkout;
+  - AI shown at startup (the last one used, or a fixed one);
+  - keep the app in the tray when closing the window;
+  - **global shortcut** to show or hide the window from anywhere (customisable). Under Wayland it goes through the XDG GlobalShortcuts portal, and KDE and Hyprland (with `xdg-desktop-portal-hyprland`) ask for confirmation the first time.
+- **Files**: quick access to `ais.json`, the skins folder and the data folder.
+- **Shortcuts and version**: a shortcut cheat sheet, plus the app, Electron and Chromium versions.
 
-Le chevron en bas du rail affiche les noms des IA. L'app mémorise la taille de la fenêtre, son état maximisé et la dernière IA ouverte. Sous Wayland, c'est le compositeur qui place la fenêtre, donc sa position n'est pas restaurée.
+The chevron at the bottom of the rail shows the AI names. The app remembers the window size, its maximised state and the last AI. Under Wayland the compositor places windows, so the position is not restored.
 
 ---
 
-## 7. Ajouter une IA
+## 7. Adding an AI
 
-Édite `~/.config/ai-control-center/ais.json` (Réglages → Fichiers), puis relance :
+Edit `~/.config/ai-control-center/ais.json` (Réglages → Fichiers), then restart:
 
 ```json
 {
@@ -303,38 +334,38 @@ Le chevron en bas du rail affiche les noms des IA. L'app mémorise la taille de 
 }
 ```
 
-| Champ | |
+| Field | |
 |---|---|
-| `id` | identifiant unique, minuscules, chiffres et tirets ; il sert aussi à nommer la session (`persist:ai-<id>`) |
-| `name`, `url` | nom affiché, page d'accueil |
-| `icon` | fichier SVG/PNG, cherché à côté de `ais.json` puis dans les icônes intégrées ; absent = monogramme. Mets un `.png` du même nom à côté d'un `.svg` pour l'icône des notifications |
-| `accent` | couleur de l'IA : lueur de l'interface et teinte de l'habillage |
-| `allowedDomains` | domaines (et sous-domaines) qui restent dans l'app ; le reste s'ouvre dans ton navigateur. Les pages de connexion Google, Apple, Microsoft, OpenAI, Meta et Cloudflare sont toujours autorisées |
-| `adapter` | `claude`, `chatgpt`, `muse` ou rien (adaptateur générique) |
-| `userAgent` | facultatif, pour forcer un user agent |
-| `enabled` | `false` pour masquer l'IA sans la supprimer |
+| `id` | unique id: lowercase letters, digits and dashes; it also names the session (`persist:ai-<id>`) |
+| `name`, `url` | display name, home page |
+| `icon` | SVG/PNG file, looked up next to `ais.json` and then among the built-in icons; if missing, a monogram is drawn. Put a `.png` with the same name next to an `.svg` for the notification icon |
+| `accent` | the AI's colour: UI glow and skin tint |
+| `allowedDomains` | domains (and subdomains) that stay in the app; anything else opens in your browser. Google, Apple, Microsoft, OpenAI, Meta and Cloudflare sign-in pages are always allowed |
+| `adapter` | `claude`, `chatgpt`, `muse`, or nothing (generic adapter) |
+| `userAgent` | optional, to force a user agent |
+| `enabled` | `false` removes the AI without deleting its entry (to just hide it, use the settings) |
 
-Une IA sans adaptateur dédié bénéficie quand même de ses propres notifications web, de sa session persistante et de l'interface.
+An AI without a dedicated adapter still gets its own web notifications, a persistent session and the full UI.
 
 ---
 
-## 8. Notifications : comment ça marche, comment réparer
+## 8. Notifications: how they work, how to fix them
 
-Tu reçois une notification quand une IA **a fini** (« Réponse terminée ») ou **attend une action** (« A besoin de toi » : question en fin de réponse, demande d'approbation ou de confirmation, choix proposés par Muse). Ça ne se produit que si l'app n'a pas le focus ou si cette IA n'est pas la vue active. Un clic ouvre l'app sur la bonne IA et la bonne conversation.
+You get a notification when an AI **is done** or **is waiting for you**: a question at the end of the answer, an approval or confirmation request, or choices offered by Muse. This only happens when the app is not focused or that AI is not the active view. The notification body is the AI's answer. A click opens the app on the right AI and conversation.
 
-Deux sources, fusionnées en **une seule notification par réponse** :
+Two sources are merged into **one notification per answer**:
 
-1. **Les notifications des sites eux-mêmes.** La permission leur est accordée, et leur API `Notification` (ainsi que `showNotification` des service workers) est relayée vers les notifications natives. Le clic est rejoué dans le site, qui ouvre lui-même la bonne conversation.
-2. **Les adaptateurs DOM** (`src/adapters/<ia>.ts`). Un script observe la page (MutationObserver) :
-   - **génération en cours** : bouton « stop » ou drapeau de streaming présent. Si aucun sélecteur ne correspond, l'adaptateur se rabat sur un indice universel : le dernier message grossit ;
-   - **fin** : ces signaux disparaissent pendant 1,5 s (les agents marquent des pauses entre leurs outils) ;
-   - **besoin de toi** : boutons d'approbation, choix de réponse dans le message, ou dernière phrase qui se termine par « ? ».
+1. **The sites' own notifications.** They are granted the permission, and their `Notification` API (and service workers' `showNotification`) is relayed to native notifications. The click is replayed in the site, which opens the right conversation itself.
+2. **DOM adapters** (`src/adapters/<ai>.ts`). A script watches the page with a MutationObserver:
+   - **generating**: a stop button or a streaming flag is present. If no selector matches, the adapter falls back on a universal hint: the last message keeps growing;
+   - **done**: these signals have been gone for 1.5 s (agents pause between tool calls);
+   - **needs you**: approval buttons, answer choices in the message, or a last sentence ending with "?".
 
-Le hub (`src/main/notifications.ts`) regroupe les événements arrivés à moins de 1,5 s d'intervalle. « A besoin de toi » l'emporte sur « Réponse terminée », et il ignore les doublons tant qu'une nouvelle génération n'a pas commencé.
+The hub (`src/main/notifications.ts`) groups events that arrive within 1.5 s of each other. "Needs you" wins over "done", and duplicates are ignored until a new generation starts.
 
-### Quand un site change son interface
+### When a site changes its interface
 
-Chaque adaptateur est un simple fichier de **sélecteurs CSS**, classés du principal aux replis. Quand ils ne correspondent plus, l'app l'écrit dans le terminal :
+Each adapter is a plain file of **CSS selectors**, ordered from primary to fallbacks. When they stop matching, the app says so in the terminal (messages are in French):
 
 ```
 [adapter:claude] generating : sélecteur principal introuvable, repli n°2 utilisé (claude)
@@ -342,83 +373,87 @@ Chaque adaptateur est un simple fichier de **sélecteurs CSS**, classés du prin
 [adapter:muse] génération détectée par la croissance du texte (aucun sélecteur "generating" ne correspond) — muse
 ```
 
-Pour réparer :
+To fix it:
 
-1. Lancer `AICC_DEBUG=1 npm run dev` : chaque décision du hub s'affiche, comme `adapter generating`, `notify done…` ou `skip (being viewed)`.
-2. Ouvrir les outils de développement de la vue (F12), repérer le nouveau bouton stop ou le conteneur de message, et mettre son sélecteur **en tête** de la liste correspondante dans `src/adapters/<ia>.ts`.
-3. Redémarrer l'app. Le bouton **Tester** des réglages vérifie que la notification elle-même s'affiche bien.
+1. Run `AICC_DEBUG=1 npm run dev`. Every hub decision is printed, such as `adapter generating`, `notify done…` or `skip (being viewed)`.
+2. Open the view's developer tools (F12), find the new stop button or message container, and put its selector **first** in the matching list in `src/adapters/<ai>.ts`.
+3. Restart the app. The **Tester** button in the settings checks that the notification itself shows up.
 
-> Les sélecteurs de « génération en cours » de Muse n'ont pas pu être observés pendant une vraie réponse. En attendant, le repli par croissance du texte prend le relais ; si le journal le signale, ajoute le sélecteur du bouton stop de Muse en tête de `generating` dans `src/adapters/muse.ts`.
+> Muse's "generating" selectors could not be observed during a real answer. Until then, the text-growth fallback takes over. If the log says so, add Muse's stop-button selector at the top of `generating` in `src/adapters/muse.ts`.
 
 ---
 
-## 9. Habillage des sites
+## 9. Site skins
 
-Chaque site reçoit une feuille de style injectée (`src/skins/<ia>.css`). Elle réutilise les **variables de couleur du site** : fonds, surfaces, barre latérale, zone de saisie. Toutes les teintes sont mélangées depuis l'`accent` de l'IA, ce qui donne Claude orangé, Muse bleu et ChatGPT presque noir. S'y ajoutent une **lueur de verre** très légère, une **zone de saisie en verre dépoli** et des bulles de message teintées. Le texte n'est jamais touché. Si un site renomme ses variables, l'habillage ne s'applique simplement plus, et rien ne casse.
+Each site gets an injected stylesheet (`src/skins/<ai>.css`) that reuses the **site's own colour variables**: backgrounds, surfaces, sidebar, composer. Every tone is mixed from the AI's `accent`, which gives a warm Claude, a blue Muse and a near-black ChatGPT. On top of that come a very light **glass glow**, a **frosted composer** and tinted message bubbles. Text is never touched. If a site renames its variables, the skin simply stops applying and nothing breaks.
 
-Pour tes propres retouches, crée `~/.config/ai-control-center/skins/<id>.css`. Il est ajouté après l'habillage intégré et **rechargé dès l'enregistrement** :
+For your own tweaks, create `~/.config/ai-control-center/skins/<id>.css`. It is appended after the built-in skin and **reloaded on save**:
 
 ```css
-:root { --aicc-tint: 18%; }                         /* intensité de la teinte (11 % par défaut) */
-html { --aicc-glow-opacity: 0.35 !important; }      /* intensité de la lueur (0.22 par défaut) */
+html { --aicc-glow-opacity: 0.35 !important; }      /* glow strength (0.22 by default) */
 ```
 
-L'habillage se désactive par IA dans les réglages, ou globalement avec `AICC_SKINS=0`.
+The tint strength is set in the settings (Appearance → Teinte des surfaces). Skins can be turned off per AI in the settings, or globally with `AICC_SKINS=0`.
 
 ---
 
-## 10. Dépannage
+## 10. Troubleshooting
 
-**Google affiche « Ce navigateur n'est peut-être pas sécurisé ».** Google refuse les navigateurs intégrés. Sur ses pages de connexion uniquement, l'app se présente comme Firefox (en-têtes et `navigator`), et reste Chrome partout ailleurs. Si le blocage revient après une mise à jour de Google, vérifie que `accounts.google.com` figure toujours dans `GOOGLE_AUTH_HOSTS` (`src/shared/protocol.ts`).
+**Google says "This browser or app may not be secure".** Google rejects embedded browsers. On its sign-in pages only, the app presents itself as Firefox (headers and `navigator`); it stays Chrome everywhere else. If the block comes back after a Google change, check that `accounts.google.com` is still in `GOOGLE_AUTH_HOSTS` (`src/shared/protocol.ts`).
 
-**Je relance mais rien ne change.** L'ancienne instance tourne encore dans le tray : quitte-la (tray → Quitter).
+**Opening the app from the menu does nothing.** Another instance is already running, possibly a `npm run dev` one hidden in the tray. The new one brings it forward and exits. Quit it (tray → Quitter) first.
 
-**L'AppImage ne démarre pas (FUSE).** Installe `fuse2`, ou lance-la avec `--appimage-extract-and-run`.
+**The AppImage does not start (FUSE).** Install `fuse2`, or run it with `--appimage-extract-and-run`.
 
-**`'--ozone-platform=wayland' is not compatible with Vulkan`** au démarrage : message de Chromium sans conséquence, le rendu passe par OpenGL.
+**`'--ozone-platform=wayland' is not compatible with Vulkan`** at startup: a harmless Chromium message; rendering goes through OpenGL.
 
-**Forcer X11 sous Wayland :** en dev, `npx electron-vite build && npx electron . --ozone-platform=x11` ; pour le paquet Arch, la ligne `--ozone-platform=x11` dans `~/.config/ai-control-center-flags.conf` ; pour l'AppImage, `./AI-Control-Center-*.AppImage --ozone-platform=x11`.
+**Forcing X11 under Wayland:**
+- in dev: `npx electron-vite build && npx electron . --ozone-platform=x11`;
+- Arch package: add the line `--ozone-platform=x11` to `~/.config/ai-control-center-flags.conf`;
+- AppImage: `./AI-Control-Center-*.AppImage --ozone-platform=x11`.
 
-**Une notification n'arrive pas.** Clique sur **Tester** dans les réglages. Si la notification de test arrive, c'est la détection qui est en cause : voir [§8](#quand-un-site-change-son-interface). Sinon, vérifie le service de notifications du bureau (`libnotify`) et, sur macOS, l'autorisation dans Réglages Système → Notifications.
+**A notification does not arrive.** Click **Tester** in the settings. If the test notification shows up, detection is the problem: see [§8](#when-a-site-changes-its-interface). Otherwise check the desktop notification service (`libnotify`) and, on macOS, the permission in System Settings → Notifications.
 
-**Micro (mode vocal) refusé sur macOS :** Réglages Système → Confidentialité et sécurité → Microphone → autoriser AI Control Center.
+**Microphone (voice mode) denied on macOS:** System Settings → Privacy & Security → Microphone → allow AI Control Center.
 
 ---
 
-## 11. Structure du projet
+## 11. Project layout
 
 ```
-config/ais.default.json      IA par défaut (copiées dans ais.json au premier lancement)
-resources/                   icônes des IA, de l'app et du tray (template macOS + variantes badge)
-build/                       icône 1024 px et entitlements macOS (electron-builder)
-packaging/arch/              PKGBUILD, lanceur, entrée .desktop
+config/ais.default.json      default AIs (copied into ais.json on first launch)
+resources/                   AI, app and tray icons (macOS template + badge variants)
+build/                       1024 px icon and macOS entitlements (electron-builder)
+packaging/arch/              PKGBUILD, launcher, .desktop entry
+.github/workflows/           release builds (AppImage + dmg)
 src/
-  main/                      processus principal
-    index.ts                 démarrage, fenêtre, IPC, cycle de vie
-    window.ts  glass.ts      fenêtre native, détection du mode de verre
-    views.ts                 une WebContentsView par IA, bascule, historique
-    sessions.ts              partitions persistantes, user agent, permissions, identité Firefox pour Google
-    navigation.ts            domaines autorisés, popups OAuth, liens externes
-    notifications.ts         hub : dédoublonnage, badges, clic → bonne IA
-    skins.ts                 injection de l'habillage CSS
+  main/                      main process
+    index.ts                 startup, window, IPC, settings, lifecycle
+    window.ts  glass.ts      native window, glass mode detection
+    views.ts                 one WebContentsView per AI, switching, history, zoom
+    sessions.ts              persistent partitions, user agent, permissions, Firefox identity for Google
+    navigation.ts            allowed domains, OAuth popups, external links
+    notifications.ts         hub: dedup, badges, do not disturb, click → right AI
+    skins.ts                 CSS skin injection
+    startup.ts               launch at login, global shortcut
     tray.ts  menu.ts  shortcuts.ts  store.ts  config.ts  paths.ts
   preload/
-    shell.ts                 pont étroit pour l'interface de l'app
-    site.ts                  dans chaque IA : relais des notifications web + adaptateur
-  adapters/                  un fichier de sélecteurs par IA + moteur de détection (runtime.ts)
-  skins/                     habillage CSS : palette commune + un fichier par IA
-  renderer/                  interface de l'app (rail, barre d'outils, réglages), TypeScript sans framework
-  shared/protocol.ts         types et canaux IPC partagés
+    shell.ts                 narrow bridge for the app UI
+    site.ts                  in each AI: web notification relay + adapter
+  adapters/                  one selector file per AI + detection engine (runtime.ts)
+  skins/                     CSS skins: shared palette + one file per AI
+  renderer/                  app UI (rail, toolbar, settings), framework-free TypeScript
+  shared/protocol.ts         shared types and IPC channels
 ```
 
-Stack : **Electron 44** (Chromium : connexions OAuth et Cloudflare fiables, un seul moteur sur Linux et macOS, vibrancy native), electron-vite, TypeScript, zod.
+Stack: **Electron 44**, electron-vite, TypeScript and zod. Electron was chosen because Chromium handles OAuth and Cloudflare sign-ins reliably, gives one engine on Linux and macOS, and supports native vibrancy.
 
-### Crédits
+### Credits
 
-L'ergonomie de la fenêtre (barre de titre intégrée, rail persistant, vibrancy sur macOS, fermeture vers le tray) s'inspire de [muse-desktop](https://github.com/robzilla1738/muse-desktop) (licence MIT). Aucun code n'en a été repris : ce projet est une architecture différente, faite de vues web plutôt que d'un client de CLI.
+The window design is inspired by [muse-desktop](https://github.com/robzilla1738/muse-desktop) (MIT license): integrated title bar, persistent rail, vibrancy on macOS, close to tray. No code was taken from it; this project has a different architecture, built on web views rather than a CLI client.
 
-Muse, Claude et ChatGPT sont des marques de leurs propriétaires respectifs. Ce projet est indépendant et n'est affilié à aucun d'eux.
+Muse, Claude and ChatGPT are trademarks of their respective owners. This project is independent and not affiliated with any of them.
 
-## Licence
+## License
 
-MIT, voir [LICENSE](LICENSE).
+MIT, see [LICENSE](LICENSE).

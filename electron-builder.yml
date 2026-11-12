@@ -41,8 +41,8 @@ mac:
   # Unsigned by default; set CSC_LINK / CSC_KEY_PASSWORD (or CSC_NAME) to sign.
   identity: null
   extendInfo:
-    NSMicrophoneUsageDescription: Les IA utilisent le micro pour le mode vocal.
-    NSCameraUsageDescription: Les IA peuvent utiliser la caméra quand vous le demandez.
+    NSMicrophoneUsageDescription: The AIs use the microphone for voice mode.
+    NSCameraUsageDescription: The AIs may use the camera when you ask them to.
 dmg:
   title: AI Control Center
   artifactName: AI-Control-Center-${version}-${arch}.dmg
