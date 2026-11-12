@@ -5,7 +5,7 @@ import { IPC, type Platform, type ShellState, type SiteRole } from '../shared/pr
 import { loadAiConfig } from './config'
 import { installMenu } from './menu'
 import { preloadPath } from './paths'
-import { chromeMajor, chromeUserAgent } from './sessions'
+import { chromeMajor, chromeUserAgent, firefoxIdentity } from './sessions'
 import { attachShortcuts, type ShortcutHandlers } from './shortcuts'
 import { ViewManager } from './views'
 
@@ -66,7 +66,7 @@ function registerIpc(): void {
   // Site preloads ask (synchronously, at startup) which AI they belong to.
   ipcMain.on(IPC.siteRole, (e: IpcMainEvent) => {
     const entry = views?.fromContents(e.sender)
-    const role: SiteRole = { aiId: entry?.ai.id ?? null, adapter: entry?.ai.adapter ?? null, chromeMajor }
+    const role: SiteRole = { aiId: entry?.ai.id ?? null, adapter: entry?.ai.adapter ?? null, chromeMajor, firefox: firefoxIdentity() }
     e.returnValue = role
   })
 }

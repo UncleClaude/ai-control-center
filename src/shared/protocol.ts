@@ -52,4 +52,17 @@ export interface SiteRole {
   aiId: string | null
   adapter: string | null
   chromeMajor: string
+  /** Identity presented on Google sign-in pages (see GOOGLE_AUTH_HOSTS). */
+  firefox: { userAgent: string; appVersion: string; platform: string; oscpu: string }
+}
+
+/**
+ * Google refuses sign-in from embedded Chromium ("This browser or app may not be secure"), even with
+ * a Chrome user agent. On these hosts only, views present themselves as Firefox, which Google
+ * accepts. Headers are rewritten in main, navigator properties in the site preload.
+ */
+export const GOOGLE_AUTH_HOSTS = ['accounts.google.com', 'accounts.youtube.com']
+
+export function isGoogleAuthHost(host: string): boolean {
+  return GOOGLE_AUTH_HOSTS.includes(host.toLowerCase())
 }
