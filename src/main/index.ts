@@ -116,20 +116,12 @@ function fromShell(event: { sender: Electron.WebContents }): boolean {
 function registerIpc(): void {
   const Id = z.string().max(64)
   const Nav = z.enum(['back', 'forward', 'reload'])
-  const WinAction = z.enum(['minimize', 'maximize', 'close'])
   const RectSchema = z.object({ x: z.number(), y: z.number(), width: z.number(), height: z.number() })
 
   ipcMain.handle(IPC.getState, (e) => (fromShell(e) ? shellState() : null))
   ipcMain.on(IPC.select, (e, id) => fromShell(e) && views?.select(Id.parse(id)))
   ipcMain.on(IPC.nav, (e, action) => fromShell(e) && views?.nav(Nav.parse(action)))
   ipcMain.on(IPC.layout, (e, rect) => fromShell(e) && views?.setContentRect(RectSchema.parse(rect)))
-  ipcMain.on(IPC.windowControl, (e, action) => {
-    if (!fromShell(e) || !win) return
-    const a = WinAction.parse(action)
-    if (a === 'minimize') win.minimize()
-    else if (a === 'maximize') (win.isMaximized() ? win.unmaximize() : win.maximize())
-    else win.close()
-  })
   // Site preloads ask (synchronously, at startup) which AI they belong to.
   ipcMain.on(IPC.siteRole, (e: IpcMainEvent) => {
     const entry = views?.fromContents(e.sender)
