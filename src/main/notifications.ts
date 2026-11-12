@@ -157,15 +157,13 @@ export class NotificationHub extends EventEmitter<{ badges: [Record<string, numb
   private show(aiId: string, c: Candidate, web?: WebNotificationPayload): void {
     if (!Notification.isSupported()) return
     const ai = this.deps.ais.find((a) => a.id === aiId)!
-    const body = c.snippet ? `${LABEL[c.kind]} — ${c.snippet}` : LABEL[c.kind]
+    // Only the AI's answer in the body; the label is a fallback when there is no text.
     const n = new Notification({
       title: ai.name,
-      subtitle: LABEL[c.kind], // macOS
-      body,
+      body: c.snippet || LABEL[c.kind],
       icon: this.icons.get(aiId),
       silent: true, // our own chime, when enabled, is played by the shell
-      urgency: c.kind === 'needs-input' ? 'critical' : 'normal', // Linux
-      timeoutType: c.kind === 'needs-input' ? 'never' : 'default',
+      urgency: 'normal', // never "critical": notifications expire like any other
     })
     this.live.add(n)
     const forget = () => this.live.delete(n)

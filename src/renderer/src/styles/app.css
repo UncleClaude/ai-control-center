@@ -122,7 +122,7 @@ img {
   grid-column: 1 / -1;
   grid-row: 1;
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
   padding: 0 var(--gutter) 0 calc(var(--gutter) + 2px);
   -webkit-app-region: drag;
@@ -136,10 +136,9 @@ img {
 :root[data-platform='darwin'][data-maximized='true'] .titlebar-leading {
   width: 0;
 }
-.titlebar-center {
-  display: flex;
-  justify-content: center;
+.titlebar-spacer {
   min-width: 0;
+  height: 100%;
 }
 .titlebar-trailing {
   display: flex;
@@ -160,42 +159,12 @@ img {
   border-radius: 999px;
   max-width: 420px;
 }
-.title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 10px 0 6px;
-  min-width: 0;
+/* Reload icon turns while the active page loads. */
+.nav-reload svg {
+  transition: rotate 0.3s var(--ease-out);
 }
-.title-icon {
-  width: 18px;
-  height: 18px;
-  border-radius: 5px;
-  flex-shrink: 0;
-}
-.title-text {
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.title-spinner {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  border: 1.6px solid var(--text-faint);
-  border-top-color: var(--text-muted);
-  opacity: 0;
-  transform: scale(0.6);
-  transition:
-    opacity 0.2s var(--ease-out),
-    transform 0.3s var(--ease-spring);
+.is-loading .nav-reload svg {
   animation: spin 0.9s linear infinite;
-}
-.is-loading .title-spinner {
-  opacity: 1;
-  transform: scale(1);
 }
 @keyframes spin {
   to {
@@ -766,4 +735,40 @@ img {
 :root[data-rail='expanded'] .rail-footer {
   flex-direction: row;
   justify-content: space-between;
+}
+
+/* ---------- Unread: breathing icon ---------- */
+
+.rail-item.unread .rail-icon {
+  animation: unread-breathe 2.6s ease-in-out infinite;
+}
+.rail-item.unread .rail-icon img {
+  animation: unread-glow 2.6s ease-in-out infinite;
+}
+@keyframes unread-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.07);
+  }
+}
+@keyframes unread-glow {
+  0%,
+  100% {
+    box-shadow:
+      0 2px 6px rgba(0, 0, 0, 0.16),
+      0 0 0 0 color-mix(in srgb, var(--item-accent) 0%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 2px 6px rgba(0, 0, 0, 0.16),
+      0 0 0 3px color-mix(in srgb, var(--item-accent) 45%, transparent),
+      0 0 18px 4px color-mix(in srgb, var(--item-accent) 55%, transparent);
+  }
+}
+/* Hover keeps its own lift instead of fighting the animation. */
+.rail-item.unread:hover .rail-icon {
+  animation-play-state: paused;
 }

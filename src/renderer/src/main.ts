@@ -11,8 +11,6 @@ const root = document.documentElement
 const list = $<HTMLUListElement>('rail-list')
 const indicator = $<HTMLDivElement>('rail-indicator')
 const content = $<HTMLDivElement>('content')
-const titleIcon = $<HTMLImageElement>('title-icon')
-const titleText = $<HTMLSpanElement>('title-text')
 const backBtn = $<HTMLButtonElement>('nav-back')
 const forwardBtn = $<HTMLButtonElement>('nav-forward')
 const reloadBtn = $<HTMLButtonElement>('nav-reload')
@@ -20,6 +18,9 @@ const maxBtn = $<HTMLButtonElement>('wc-max')
 const railToggle = $<HTMLButtonElement>('rail-toggle')
 const settingsBtn = $<HTMLButtonElement>('rail-settings')
 
+backBtn.title = 'Précédent'
+forwardBtn.title = 'Suivant'
+reloadBtn.title = 'Recharger'
 backBtn.innerHTML = icons.back
 forwardBtn.innerHTML = icons.forward
 reloadBtn.innerHTML = icons.reload
@@ -91,6 +92,7 @@ function buildRail(s: ShellState): void {
     btn.className = 'rail-item'
     btn.type = 'button'
     btn.dataset.id = ai.id
+    btn.style.setProperty('--item-accent', ai.accent)
     btn.title = i < 9 ? `${ai.name}   ${mod}${i + 1}` : ai.name
     btn.setAttribute('aria-label', ai.name)
 
@@ -155,12 +157,12 @@ function render(s: ShellState): void {
       badge.textContent = count > 9 ? '9+' : count > 1 ? String(count) : ''
       badge.classList.toggle('visible', count > 0)
     }
+    // Unread answer: the icon breathes until the AI is viewed.
+    btn.classList.toggle('unread', count > 0)
   }
 
   const active = s.ais.find((a) => a.id === s.activeId)
   if (active) {
-    titleIcon.src = active.icon
-    titleText.textContent = active.name
     root.style.setProperty('--accent', active.accent)
   }
   root.classList.toggle('is-loading', !!(s.activeId && s.loading[s.activeId]))

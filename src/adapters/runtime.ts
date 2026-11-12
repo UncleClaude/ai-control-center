@@ -12,10 +12,34 @@ function normalise(text: string): string {
   return text.replace(/\s+/g, ' ').trim()
 }
 
-/** Visible text with block boundaries kept (innerText), falling back to textContent. */
+/** Screen-reader labels and UI chrome that are not part of the answer. */
+const NOISE = '.sr-only, [class~="sr-only"], .visually-hidden, button, [role="toolbar"], [role="button"], svg, style, script'
+/** "ChatGPT said:", "Claude responded:"… prefixes some sites put in front of each message. */
+const SPEAKER = /^\s*[\p{L}\p{N} .'-]{1,30}\s(said|responded|says|wrote|a dit|a répondu|répond)\s*:\s*/iu
+const BLOCKS = 'p, li, h1, h2, h3, h4, h5, h6, pre, blockquote, tr, br, div'
+
+/** The answer's own text: labels and buttons stripped, block boundaries kept as spaces. */
+function cleanText(el: Element): string {
+  const clone = el.cloneNode(true) as Element
+  clone.querySelectorAll(NOISE).forEach((n) => n.remove())
+  clone.querySelectorAll(BLOCKS).forEach((n) => n.append(' '))
+  return normalise(clone.textContent ?? '').replace(SPEAKER, '')
+}
+
+/** Message text; when the matched element only holds a label, use its whole turn. */
 function textOf(el: Element | null | undefined): string {
   if (!el) return ''
-  return (el as HTMLElement).innerText || el.textContent || ''
+  const own = cleanText(el)
+  if (own.length >= 3) return own
+  const turn = el.closest('[data-turn-key], [data-testid^="conversation-turn"], article') ?? el.parentElement
+  return turn ? cleanText(turn) : own
+}
+
+/** Short, stable fingerprint of a message, so a new answer never looks like the previous one. */
+function fingerprint(text: string): string {
+  let h = 0
+  for (let i = 0; i < Math.min(text.length, 200); i++) h = (h * 31 + text.charCodeAt(i)) | 0
+  return (h >>> 0).toString(36)
 }
 
 function excerpt(text: string, fromEnd: boolean): string {
@@ -24,12 +48,9 @@ function excerpt(text: string, fromEnd: boolean): string {
   return fromEnd ? `…${t.slice(-SNIPPET + 1)}` : `${t.slice(0, SNIPPET - 1)}…`
 }
 
-/** Last non-empty paragraph ends with a question mark (also French " ?"). */
-function endsWithQuestion(el: Element): boolean {
-  const blocks = [...el.querySelectorAll('p, li, h1, h2, h3, h4, blockquote')]
-  const last = blocks.reverse().find((b) => normalise(b.textContent ?? '').length > 0)
-  const text = normalise((last ?? el).textContent ?? '')
-  return /\?\s*[)"»”']?\s*$/.test(text)
+/** The answer ends with a question (also French " ?"). */
+function endsWithQuestion(text: string): boolean {
+  return /\?\s*[)"»”'*_]*\s*$/.test(text)
 }
 
 /**
@@ -86,7 +107,8 @@ export function runAdapter(spec: AdapterSpec, emit: Emit, log: Log): void {
   const keyFor = (msg: Element | null): string => {
     const count = spec.assistantMessage.reduce((n, s) => n || document.querySelectorAll(s).length, 0)
     const turn = msg?.closest('[data-turn-key]')?.getAttribute('data-turn-key') ?? ''
-    return `${location.pathname}#${count}${turn ? `:${turn}` : ''}`
+    const print = msg ? fingerprint(textOf(msg)) : ''
+    return `${location.pathname}#${count}${turn ? `:${turn}` : ''}${print ? `~${print}` : ''}`
   }
 
   const approvalVisible = (): boolean => {
@@ -101,11 +123,13 @@ export function runAdapter(spec: AdapterSpec, emit: Emit, log: Log): void {
   const needsInput = (msg: Element | null): boolean => {
     if (approvalVisible()) return true
     if (!msg) return false
-    if (spec.choiceButtons) {
+    const text = textOf(msg)
+    // Answer buttons count only alongside a question: sites also show follow-up suggestions.
+    if (spec.choiceButtons && text.slice(-400).includes('?')) {
       const scope = msg.parentElement ?? msg
       for (const s of spec.choiceButtons) if (scope.querySelectorAll(s).length >= 2) return true
     }
-    return endsWithQuestion(msg)
+    return endsWithQuestion(text)
   }
 
   const finish = () => {
