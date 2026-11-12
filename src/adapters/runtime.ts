@@ -78,7 +78,7 @@ export function runAdapter(spec: AdapterSpec, emit: Emit, log: Log): void {
   }
 
   const noteFallback = (field: string, index: number) => {
-    if (index === 0 || usedFallback.has(field)) return
+    if (index === 0 || usedFallback.has(field) || spec.ignorePaths?.test(location.pathname)) return
     usedFallback.add(field)
     log('info', `${field} : sélecteur principal introuvable, repli n°${index} utilisé (${spec.name})`)
   }

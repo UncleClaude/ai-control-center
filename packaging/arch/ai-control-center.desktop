@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=AI Control Center
+GenericName=AI assistants
+Comment=Muse, Claude and ChatGPT in one glass window
+Exec=ai-control-center %U
+Icon=ai-control-center
+Terminal=false
+Categories=Network;Utility;
+Keywords=AI;Claude;ChatGPT;Muse;Chat;
+StartupWMClass=ai-control-center
+StartupNotify=true

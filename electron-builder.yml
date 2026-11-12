@@ -1,0 +1,48 @@
+# electron-builder: AppImage (Linux) and dmg (macOS). The Arch package uses packaging/arch/PKGBUILD.
+appId: io.github.ai-control-center
+productName: AI Control Center
+executableName: ai-control-center
+copyright: AI Control Center contributors
+directories:
+  output: dist
+  buildResources: build
+files:
+  - out/**
+  - package.json
+extraResources:
+  - from: resources
+    to: resources
+asar: true
+
+linux:
+  target:
+    - AppImage
+  category: Network
+  icon: build/icon.png
+  synopsis: Muse, Claude and ChatGPT in one glass window
+  description: Desktop app gathering the web apps of your AIs, with notifications when they finish or need you.
+  desktop:
+    entry:
+      Name: AI Control Center
+      StartupWMClass: ai-control-center
+      Keywords: AI;Claude;ChatGPT;Muse;Chat;
+appImage:
+  artifactName: AI-Control-Center-${version}-${arch}.AppImage
+
+mac:
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+  category: public.app-category.productivity
+  icon: build/icon.png
+  hardenedRuntime: true
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  # Unsigned by default; set CSC_LINK / CSC_KEY_PASSWORD (or CSC_NAME) to sign.
+  identity: null
+  extendInfo:
+    NSMicrophoneUsageDescription: Les IA utilisent le micro pour le mode vocal.
+    NSCameraUsageDescription: Les IA peuvent utiliser la caméra quand vous le demandez.
+dmg:
+  title: AI Control Center
+  artifactName: AI-Control-Center-${version}-${arch}.dmg

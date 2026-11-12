@@ -1,10 +1,21 @@
-import { join } from 'node:path'
+import { existsSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import { app } from 'electron'
 
-/** Bundled resources (icons, tray images): resources/ in dev, Contents/Resources/resources when packaged. */
+let resourceBase: string | null = null
+
+/**
+ * Bundled resources (icons, tray images). Looked up, in order, next to the Electron resources
+ * (electron-builder: AppImage, .app), next to app.asar (Arch package running the system electron)
+ * and in the project (dev).
+ */
 export function resourcePath(...parts: string[]): string {
-  const base = app.isPackaged ? join(process.resourcesPath, 'resources') : join(app.getAppPath(), 'resources')
-  return join(base, ...parts)
+  if (!resourceBase) {
+    const appPath = app.getAppPath()
+    const candidates = [join(process.resourcesPath, 'resources'), join(dirname(appPath), 'resources'), join(appPath, 'resources')]
+    resourceBase = candidates.find((c) => existsSync(join(c, 'tray'))) ?? candidates[candidates.length - 1]
+  }
+  return join(resourceBase, ...parts)
 }
 
 export function preloadPath(name: 'shell' | 'site'): string {

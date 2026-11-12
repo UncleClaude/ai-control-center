@@ -5,6 +5,7 @@
   "version": "0.1.0",
   "description": "Desktop app gathering Muse, Claude and ChatGPT web apps in one glass window.",
   "license": "MIT",
+  "author": "AI Control Center contributors",
   "private": true,
   "main": "out/main/index.js",
   "scripts": {

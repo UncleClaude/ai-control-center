@@ -1,0 +1,61 @@
+# Maintainer: you <you@example.com>
+#
+# Builds the package from this repository's committed HEAD (no network source):
+#   cd packaging/arch && makepkg -si
+# The app runs on Arch's own Electron (electron44), so the package stays small and gets
+# Chromium security updates with the system.
+
+pkgname=ai-control-center
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Muse, Claude and ChatGPT web apps in one glass window, with notifications'
+arch=('x86_64' 'aarch64')
+license=('MIT')
+depends=('electron44' 'libnotify' 'hicolor-icon-theme')
+makedepends=('git' 'nodejs' 'npm' 'librsvg')
+optdepends=(
+  'kwin-effects-better-blur-dx-git: real blur behind the window on KDE Plasma (AUR)'
+  'gnome-shell-extension-appindicator: tray icon on GNOME'
+)
+source=()
+sha256sums=()
+options=('!strip' '!debug')
+
+_repo() { realpath "$startdir/../.."; }
+
+prepare() {
+  rm -rf "$srcdir/app"
+  mkdir -p "$srcdir/app"
+  git -C "$(_repo)" archive --format=tar HEAD | tar -x -C "$srcdir/app"
+}
+
+build() {
+  cd "$srcdir/app"
+  export npm_config_cache="$srcdir/npm-cache"
+  # The Electron binary from npm is not needed: the system electron44 runs the app.
+  ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci --no-audit --no-fund
+  npx electron-vite build
+
+  # app.asar = compiled app + production dependencies only.
+  rm -rf stage && mkdir stage
+  cp -r out package.json package-lock.json stage/
+  (cd stage && npm ci --omit=dev --ignore-scripts --no-audit --no-fund && rm package-lock.json)
+  node node_modules/@electron/asar/bin/asar.mjs pack stage app.asar
+}
+
+package() {
+  cd "$srcdir/app"
+  install -dm755 "$pkgdir/usr/lib/$pkgname"
+  install -Dm644 app.asar "$pkgdir/usr/lib/$pkgname/app.asar"
+  cp -r resources "$pkgdir/usr/lib/$pkgname/resources"
+  find "$pkgdir/usr/lib/$pkgname/resources" -type f -exec chmod 644 {} +
+
+  install -Dm755 packaging/arch/ai-control-center.sh "$pkgdir/usr/bin/$pkgname"
+  install -Dm644 packaging/arch/ai-control-center.desktop "$pkgdir/usr/share/applications/$pkgname.desktop"
+  for size in 32 64 128 256 512; do
+    install -dm755 "$pkgdir/usr/share/icons/hicolor/${size}x${size}/apps"
+    rsvg-convert -w $size -h $size resources/icons/app.svg -o "$pkgdir/usr/share/icons/hicolor/${size}x${size}/apps/$pkgname.png"
+  done
+  install -Dm644 resources/icons/app.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/$pkgname.svg"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
