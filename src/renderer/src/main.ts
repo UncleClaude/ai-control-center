@@ -3,6 +3,7 @@ import { icons } from './icons'
 import { LoginOverlay } from './login-overlay'
 import { SettingsPanel } from './settings'
 import { playChime } from './sound'
+import { UpdatePrompt } from './update-prompt'
 import './styles/tokens.css'
 import './styles/app.css'
 
@@ -50,6 +51,16 @@ new LoginOverlay(
   (shown) => {
     if (shown) settings.hide()
     root.classList.toggle('login-open', shown)
+  },
+)
+
+// Startup update prompt. Hides the site views while shown (like settings) so it sits above them.
+new UpdatePrompt(
+  $('update-overlay'),
+  () => state?.version ?? '',
+  (hidden) => {
+    if (hidden) settings.hide()
+    api.setSettingsVisible(hidden)
   },
 )
 

@@ -25,6 +25,8 @@ export interface Prefs {
   globalShortcut: boolean
   globalShortcutKey: string
   doNotDisturb: boolean
+  /** Check GitHub for updates at launch and prompt. */
+  autoUpdate: boolean
   order: string[]
   ai: Record<string, AiPrefs>
 }
@@ -50,6 +52,7 @@ const DEFAULTS: AppState = {
     globalShortcut: false,
     globalShortcutKey: 'CommandOrControl+Shift+Space',
     doNotDisturb: false,
+    autoUpdate: true,
     order: [],
     ai: {},
   },

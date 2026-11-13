@@ -1029,3 +1029,20 @@ img {
   color: var(--text-faint);
   max-width: 400px;
 }
+
+/* Update prompt progress bar */
+.update-progress {
+  width: 240px;
+  height: 6px;
+  margin: 16px 0 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 12%, transparent);
+  overflow: hidden;
+}
+.update-progress-bar {
+  width: 0%;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width 0.2s var(--ease-out);
+}

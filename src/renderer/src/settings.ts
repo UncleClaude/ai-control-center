@@ -152,6 +152,7 @@ export class SettingsPanel {
       this.appearanceSection(s),
       this.notificationsSection(s),
       this.startupSection(s),
+      this.updatesSection(s),
       this.filesSection(s),
       this.aboutSection(s),
     )
@@ -444,6 +445,60 @@ export class SettingsPanel {
         link(icons.file, 'Liste des IA (ais.json)', s.configPath, 'config'),
         link(icons.folder, 'Dossier d’habillages personnels', s.skinsPath, 'skins'),
         link(icons.folder, 'Dossier des données de l’app', s.dataPath, 'data'),
+      ),
+    )
+  }
+
+  private updatesSection(s: Settings): HTMLElement {
+    const status = el('p', 'field-note')
+    const check = pill(icons.reload, 'Vérifier maintenant', 'Chercher une nouvelle version sur GitHub', async (b) => {
+      b.disabled = true
+      const label = b.querySelector('span')!
+      const prev = label.textContent
+      label.textContent = 'Vérification…'
+      status.className = 'field-note'
+      status.textContent = ''
+      try {
+        const { update, error } = await api.checkUpdate()
+        if (error) {
+          status.textContent = `Vérification impossible : ${error}`
+        } else if (!update) {
+          status.textContent = `Vous avez la dernière version (${s.version}).`
+        } else {
+          status.textContent = `Version ${update.version} disponible.`
+          const install = pill(
+            icons.download,
+            update.selfInstall ? 'Installer et redémarrer' : 'Télécharger',
+            'Installer la mise à jour',
+            async (ib) => {
+              ib.disabled = true
+              ib.querySelector('span')!.textContent = 'Téléchargement…'
+              const res = await api.applyUpdate()
+              if (res.error) ib.querySelector('span')!.textContent = `Échec : ${res.error}`
+              else if (res.result === 'opened') status.textContent = 'Le dmg s’ouvre : glissez l’app dans Applications.'
+              else if (res.result === 'page') status.textContent = 'Page de téléchargement ouverte dans le navigateur.'
+            },
+          )
+          status.after(install)
+        }
+      } catch {
+        status.textContent = 'Vérification impossible.'
+      }
+      label.textContent = prev
+      b.disabled = false
+    })
+    const row = el('div', 'ai-card-row')
+    row.style.marginTop = '0'
+    row.style.borderTop = '0'
+    row.style.paddingTop = '0'
+    row.append(check)
+    return section(
+      'Mises à jour',
+      box(
+        toggle('Vérifier les mises à jour au démarrage', s.autoUpdate, (v) => void this.patch({ autoUpdate: v }, false)),
+        el('p', 'field-note', `Version actuelle : ${s.version}. Les mises à jour viennent des releases GitHub du projet.`),
+        row,
+        status,
       ),
     )
   }

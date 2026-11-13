@@ -14,6 +14,7 @@ import { attachShortcuts, type ShortcutHandlers } from './shortcuts'
 import { SkinManager, userSkinDir } from './skins'
 import { applyGlobalShortcut, applyLaunchAtLogin, launchUnsupported, startsHidden } from './startup'
 import { store } from './store'
+import { applyUpdate, checkForUpdate, relaunchForUpdate, type UpdateInfo } from './updater'
 import { AppTray } from './tray'
 import { ViewManager, type AiView } from './views'
 import { createMainWindow, siteBackground } from './window'
@@ -36,6 +37,13 @@ let glass: GlassInfo
 let quitting = false
 let badges: Record<string, number> = {}
 let shortcutError: string | null = null
+/** The newest release found by a check, kept so applyUpdate knows what to download. */
+let pendingUpdate: UpdateInfo | null = null
+
+function publicUpdate(info: UpdateInfo): { version: string; notes: string; pageUrl: string; selfInstall: boolean } {
+  const selfInstall = process.platform === 'linux' && !!process.env.APPIMAGE && !!info.asset
+  return { version: info.version, notes: info.notes.slice(0, 2000), pageUrl: info.pageUrl, selfInstall }
+}
 /** ais.json accents, before the user's per-AI overrides. */
 const baseAccent = new Map<string, string>()
 
@@ -84,6 +92,7 @@ function shellState(): ShellState {
     canGoBack: history?.canGoBack() ?? false,
     canGoForward: history?.canGoForward() ?? false,
     appearance: { tint: store.state.prefs.tint, reduceMotion: store.state.prefs.reduceMotion },
+    version: app.getVersion(),
   }
 }
 
@@ -231,6 +240,7 @@ function registerIpc(): void {
       globalShortcutKey: p.globalShortcutKey,
       globalShortcutError: shortcutError,
       doNotDisturb: p.doNotDisturb,
+      autoUpdate: p.autoUpdate,
       order: ordered.map((ai) => ai.id),
       ai: Object.fromEntries(
         ordered.map((ai) => {
@@ -280,6 +290,7 @@ function registerIpc(): void {
     globalShortcut: z.boolean().optional(),
     globalShortcutKey: z.string().min(1).max(80).optional(),
     doNotDisturb: z.boolean().optional(),
+    autoUpdate: z.boolean().optional(),
     order: z.array(Id).max(64).optional(),
     ai: z.record(Id, AiPatch).optional(),
   })
@@ -329,6 +340,26 @@ function registerIpc(): void {
     if (!fromShell(e)) return
     const act = z.enum(['finish', 'cancel', 'reopen']).parse(action)
     void handleLoginAction(Id.parse(id), act)
+  })
+
+  ipcMain.handle(IPC.checkUpdate, async (e) => {
+    if (!fromShell(e)) return { update: null }
+    try {
+      pendingUpdate = await checkForUpdate()
+      return { update: pendingUpdate ? publicUpdate(pendingUpdate) : null }
+    } catch (error) {
+      return { update: null, error: error instanceof Error ? error.message : String(error) }
+    }
+  })
+  ipcMain.handle(IPC.applyUpdate, async (e) => {
+    if (!fromShell(e) || !pendingUpdate) return { error: 'aucune mise à jour en attente' }
+    try {
+      const result = await applyUpdate(pendingUpdate, (f) => shellView?.webContents.send(IPC.updateProgress, f))
+      if (result === 'relaunch') relaunchForUpdate()
+      return { result }
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) }
+    }
   })
 
   ipcMain.handle(IPC.aiAction, async (e, id, action) => {
@@ -528,6 +559,19 @@ async function handleLoginAction(aiId: string, action: 'finish' | 'cancel' | 're
   }
 }
 
+/** At launch: look for a newer release and, if found, ask the shell to prompt the user. */
+async function checkUpdatesAtStartup(): Promise<void> {
+  try {
+    pendingUpdate = await checkForUpdate()
+    if (pendingUpdate) {
+      console.info(`[update] version ${pendingUpdate.version} disponible`)
+      shellView?.webContents.send(IPC.updateAvailable, publicUpdate(pendingUpdate))
+    }
+  } catch (error) {
+    console.info(`[update] vérification impossible : ${error instanceof Error ? error.message : error}`)
+  }
+}
+
 // ---------- Shortcuts ----------
 
 function zoomActive(step: 1 | -1 | 0): void {
@@ -645,6 +689,8 @@ function createWindow(): void {
   else void shellView.webContents.loadFile(join(__dirname, '../renderer/index.html'))
   shellView.webContents.once('did-finish-load', () => {
     if (!startsHidden(store.state.prefs.startHidden)) win?.show()
+    // Check GitHub for a newer release shortly after launch, then prompt (if enabled).
+    if (store.state.prefs.autoUpdate) setTimeout(() => void checkUpdatesAtStartup(), 3500)
   })
 
   skins = new SkinManager(

@@ -30,6 +30,8 @@ export interface ShellState {
   canGoForward: boolean
   /** Live appearance preferences the shell applies itself. */
   appearance: { tint: number; reduceMotion: boolean }
+  /** App version, for the update prompt. */
+  version: string
 }
 
 export interface Rect {
@@ -69,7 +71,23 @@ export const IPC = {
   loginStatus: 'shell:login-status',
   /** shell → main: the overlay's finish / cancel / reopen buttons. */
   loginAction: 'shell:login-action',
+  checkUpdate: 'shell:check-update',
+  applyUpdate: 'shell:apply-update',
+  /** main → shell: download progress (0–1) while applying an update. */
+  updateProgress: 'shell:update-progress',
+  /** main → shell: an update was found at startup; prompt the user. */
+  updateAvailable: 'shell:update-available',
 } as const
+
+/** A newer release, as surfaced to the shell (download URLs stay in main). */
+export interface UpdateInfoPublic {
+  version: string
+  notes: string
+  pageUrl: string
+  /** true on platforms where the app can fetch and apply it itself (Linux AppImage). */
+  selfInstall: boolean
+}
+export type UpdateApply = 'relaunch' | 'opened' | 'page'
 
 export type LoginState = 'watching' | 'searching' | 'none-found' | 'done' | 'timeout' | 'cancelled'
 export type LoginAction = 'finish' | 'cancel' | 'reopen'
@@ -125,6 +143,7 @@ export interface Settings {
   /** Registration failure for the global shortcut, if any. */
   globalShortcutError: string | null
   doNotDisturb: boolean
+  autoUpdate: boolean
   /** Rail order (ids, every configured AI). */
   order: string[]
   ai: Record<string, AiSettings>
@@ -161,6 +180,7 @@ export type SettingsPatch = Partial<
     | 'globalShortcut'
     | 'globalShortcutKey'
     | 'doNotDisturb'
+    | 'autoUpdate'
     | 'order'
   >
 > & {
@@ -182,6 +202,13 @@ export interface ShellApi {
   onLoginStatus(listener: (status: LoginStatus) => void): () => void
   /** The login overlay's finish / cancel / reopen buttons. */
   loginAction(aiId: string, action: LoginAction): void
+  /** Checks GitHub for a newer release (Réglages → Mises à jour). */
+  checkUpdate(): Promise<{ update: UpdateInfoPublic | null; error?: string }>
+  /** Downloads and applies the pending update; reports progress via onUpdateProgress. */
+  applyUpdate(): Promise<{ result?: UpdateApply; error?: string }>
+  onUpdateProgress(listener: (fraction: number) => void): () => void
+  /** An update found at startup: show the prompt. */
+  onUpdateAvailable(listener: (update: UpdateInfoPublic) => void): () => void
   select(id: string): void
   nav(action: NavAction): void
   setContentRect(rect: Rect): void

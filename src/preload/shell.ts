@@ -30,6 +30,18 @@ const api: ShellApi = {
     return () => ipcRenderer.off(IPC.loginStatus, wrapped)
   },
   loginAction: (aiId, action) => ipcRenderer.send(IPC.loginAction, aiId, action),
+  checkUpdate: () => ipcRenderer.invoke(IPC.checkUpdate),
+  applyUpdate: () => ipcRenderer.invoke(IPC.applyUpdate),
+  onUpdateProgress: (listener) => {
+    const wrapped = (_e: unknown, fraction: number) => listener(fraction)
+    ipcRenderer.on(IPC.updateProgress, wrapped)
+    return () => ipcRenderer.off(IPC.updateProgress, wrapped)
+  },
+  onUpdateAvailable: (listener) => {
+    const wrapped = (_e: unknown, update: Parameters<typeof listener>[0]) => listener(update)
+    ipcRenderer.on(IPC.updateAvailable, wrapped)
+    return () => ipcRenderer.off(IPC.updateAvailable, wrapped)
+  },
   select: (id) => ipcRenderer.send(IPC.select, id),
   nav: (action) => ipcRenderer.send(IPC.nav, action),
   setContentRect: (rect) => ipcRenderer.send(IPC.layout, rect),
