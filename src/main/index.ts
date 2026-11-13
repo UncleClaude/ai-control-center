@@ -1,10 +1,12 @@
 import { join } from 'node:path'
 import { app, globalShortcut, ipcMain, nativeTheme, screen, shell, WebContentsView, type BaseWindow, type IpcMainEvent } from 'electron'
 import { z } from 'zod'
-import { IPC, type AiPublic, type GlassPreference, type Platform, type Settings, type ShellState, type SiteRole } from '../shared/protocol'
+import { IPC, type AiPublic, type GlassPreference, type ImportResult, type Platform, type Settings, type ShellState, type SiteRole } from '../shared/protocol'
+import { detectBrowsers, readCookies, type BrowserProfile } from './browser-cookies'
 import { configFilePath, loadAiConfig, type AiConfig } from './config'
 import { detectGlass, type GlassInfo } from './glass'
 import { installMenu } from './menu'
+import { openExternal } from './navigation'
 import { NotificationHub } from './notifications'
 import { preloadPath } from './paths'
 import { chromeMajor, chromeUserAgent, firefoxIdentity } from './sessions'
@@ -323,6 +325,74 @@ function registerIpc(): void {
     pushState()
     return settings()
   })
+  // ---- Browser login (import the AI's session cookies from the user's own browser) ----
+  // Cached so the ids returned by listBrowsers match the ones importCookies receives.
+  let browserCache: BrowserProfile[] = []
+  ipcMain.handle(IPC.listBrowsers, (e) => {
+    if (!fromShell(e)) return []
+    browserCache = detectBrowsers()
+    return browserCache.map((b) => ({ id: b.id, kind: b.kind, label: b.label }))
+  })
+  ipcMain.on(IPC.browserLogin, (e, id) => {
+    const ai = views?.views.get(Id.parse(id))?.ai
+    if (fromShell(e) && ai) openExternal(ai.url)
+  })
+  /** The AI's own domains (not the shared Google/Apple identity hosts): the session cookie lives here. */
+  const aiDomains = (ai: AiConfig): string[] => {
+    const host = (() => {
+      try {
+        return new URL(ai.url).hostname.replace(/^www\./, '')
+      } catch {
+        return ''
+      }
+    })()
+    return [...new Set([host, ...ai.allowedDomains].filter(Boolean))]
+  }
+  ipcMain.handle(IPC.importCookies, async (e, rawAi, rawBrowser): Promise<ImportResult> => {
+    if (!fromShell(e)) return { imported: 0, error: 'refusé' }
+    const entry = views?.views.get(Id.parse(rawAi))
+    const profile = browserCache.find((b) => b.id === z.string().max(400).parse(rawBrowser))
+    if (!entry) return { imported: 0, error: 'IA inconnue' }
+    if (!profile) return { imported: 0, error: 'navigateur introuvable (relancez la détection)' }
+    let cookies
+    try {
+      cookies = readCookies(profile, aiDomains(entry.ai))
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error)
+      console.error(`[import] ${entry.ai.id} ← ${profile.label} : ${msg}`)
+      return { imported: 0, error: msg }
+    }
+    const ses = entry.view.webContents.session
+    let imported = 0
+    for (const c of cookies) {
+      try {
+        await ses.cookies.set({
+          url: c.url,
+          name: c.name,
+          value: c.value,
+          domain: c.domain,
+          path: c.path,
+          secure: c.secure,
+          httpOnly: c.httpOnly,
+          expirationDate: c.expirationDate,
+          sameSite: c.sameSite,
+        })
+        imported++
+      } catch {
+        // A single malformed cookie (e.g. SameSite=None without Secure) must not abort the import.
+      }
+    }
+    console.info(`[import] ${entry.ai.id} ← ${profile.label} : ${imported}/${cookies.length} cookies`)
+    if (imported > 0) {
+      entry.loaded = true
+      await ses.cookies.flushStore()
+      entry.view.webContents.loadURL(entry.ai.url)
+    }
+    return imported > 0
+      ? { imported }
+      : { imported: 0, error: cookies.length ? 'cookies refusés par la session' : `aucun cookie pour ce site dans ${profile.label} (connecté dans ce navigateur ?)` }
+  })
+
   ipcMain.handle(IPC.aiAction, async (e, id, action) => {
     if (!fromShell(e)) return false
     const entry = views?.views.get(Id.parse(id))

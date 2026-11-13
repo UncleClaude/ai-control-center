@@ -65,7 +65,23 @@ export const IPC = {
   openPath: 'shell:open-path',
   testNotification: 'shell:test-notification',
   aiAction: 'shell:ai-action',
+  listBrowsers: 'shell:list-browsers',
+  browserLogin: 'shell:browser-login',
+  importCookies: 'shell:import-cookies',
 } as const
+
+/** A browser profile the app can import cookies from (paths stay in main). */
+export interface BrowserInfo {
+  id: string
+  kind: 'firefox' | 'chromium' | 'safari'
+  label: string
+}
+
+export interface ImportResult {
+  imported: number
+  /** Present when nothing could be imported; a short reason to show the user. */
+  error?: string
+}
 
 export interface WebNotificationPayload {
   id: string
@@ -160,6 +176,12 @@ export interface ShellApi {
   openPath(which: 'config' | 'skins' | 'data'): void
   testNotification(aiId: string): void
   aiAction(aiId: string, action: AiAction): Promise<boolean>
+  /** Browser profiles the app can import cookies from. */
+  listBrowsers(): Promise<BrowserInfo[]>
+  /** Opens the AI's sign-in page in the user's default browser. */
+  browserLogin(aiId: string): void
+  /** Imports the AI's session cookies from a browser profile, then reloads the view. */
+  importCookies(aiId: string, browserId: string): Promise<ImportResult>
   select(id: string): void
   nav(action: NavAction): void
   setContentRect(rect: Rect): void

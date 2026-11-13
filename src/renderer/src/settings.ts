@@ -1,4 +1,4 @@
-import type { AiAction, AiPublic, AiSettings, GlassPreference, Platform, Settings, SettingsPatch, ThemePreference } from '../../shared/protocol'
+import type { AiAction, AiPublic, AiSettings, BrowserInfo, GlassPreference, Platform, Settings, SettingsPatch, ThemePreference } from '../../shared/protocol'
 import { icons } from './icons'
 
 const api = window.aicc
@@ -86,6 +86,7 @@ export class SettingsPanel {
   private open = false
   private settings: Settings | null = null
   private body: HTMLDivElement | null = null
+  private browsers: BrowserInfo[] = []
 
   constructor(
     private readonly root: HTMLElement,
@@ -103,6 +104,7 @@ export class SettingsPanel {
 
   async show(): Promise<void> {
     this.settings = await api.getSettings()
+    this.browsers = await api.listBrowsers().catch(() => [])
     this.render()
     this.open = true
     this.root.hidden = false
@@ -256,8 +258,57 @@ export class SettingsPanel {
       this.actionButton(ai, 'clear-cache', icons.trash, 'Vider le cache', 'Vide le cache et recharge la page (la connexion est conservée)'),
       this.actionButton(ai, 'sign-out', icons.logout, 'Se déconnecter', 'Efface cookies et données du site : vous devrez vous reconnecter'),
     )
-    card.append(actions)
+    card.append(this.loginRow(ai), actions)
     return card
+  }
+
+  /** Browser-login hand-off: sign in in the real browser, then import that site's session cookies. */
+  private loginRow(ai: AiPublic): HTMLElement {
+    const row = el('div', 'ai-card-row login-row')
+
+    const open = pill(icons.globe, 'Se connecter via le navigateur', 'Ouvre la page de connexion dans votre navigateur par défaut', () =>
+      api.browserLogin(ai.id),
+    )
+
+    const status = el('span', 'login-status')
+    const setStatus = (text: string, cls = '') => {
+      status.textContent = text
+      status.className = `login-status ${cls}`.trim()
+    }
+
+    const importWrap = el('span', 'field-control')
+    if (this.browsers.length === 0) {
+      setStatus('Aucun navigateur détecté pour l’import.', 'muted')
+      row.append(open, el('span', 'spacer'), status)
+      return row
+    }
+
+    const select = el('select', 'select')
+    select.setAttribute('aria-label', `Navigateur à importer pour ${ai.name}`)
+    for (const b of this.browsers) {
+      const o = el('option', undefined, b.label)
+      o.value = b.id
+      select.append(o)
+    }
+    const doImport = pill(icons.download, 'Importer ma session', 'Lit les cookies de ce site depuis le navigateur choisi', async (b) => {
+      b.disabled = true
+      const label = b.querySelector('span')!
+      const prev = label.textContent
+      label.textContent = 'Import…'
+      setStatus('')
+      try {
+        const res = await api.importCookies(ai.id, select.value)
+        if (res.imported > 0) setStatus(`${res.imported} cookie${res.imported > 1 ? 's' : ''} importé${res.imported > 1 ? 's' : ''}, la page se recharge.`, 'ok')
+        else setStatus(res.error ?? 'Rien à importer.', 'warn')
+      } catch {
+        setStatus('Échec de l’import.', 'warn')
+      }
+      label.textContent = prev
+      b.disabled = false
+    })
+    importWrap.append(el('span', 'mini-label', 'Importer depuis'), select, doImport)
+    row.append(open, importWrap, status)
+    return row
   }
 
   /** Cache / sign-out buttons. Sign-out asks for a second click within 4 s. */

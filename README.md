@@ -26,7 +26,7 @@ Platforms: **Arch Linux / CachyOS** (Wayland and X11; KDE, Hyprland, GNOME) and 
 3. [Build packages](#3-build-packages) (AppImage, PKGBUILD, dmg)
 4. [Glass effect: setting up blur](#4-glass-effect-setting-up-blur) (KDE, Hyprland)
 5. [Tray icon](#5-tray-icon)
-6. [Usage](#6-usage) (shortcuts, settings)
+6. [Usage](#6-usage) (shortcuts, settings, [signing in with your browser](#signing-in-with-your-browser))
 7. [Adding an AI](#7-adding-an-ai)
 8. [Notifications: how they work, how to fix them](#8-notifications-how-they-work-how-to-fix-them)
 9. [Site skins](#9-site-skins)
@@ -300,6 +300,7 @@ Behaviour:
   - notifications, sound, app-coloured skin;
   - custom colour: replaces the `ais.json` colour in the rail, the window tint and the site skin; ↺ restores the original;
   - page zoom, 50 to 200 %;
+  - **Se connecter via le navigateur** / **Importer ma session**: the browser-login flow, see below;
   - **Tester** shows a sample notification;
   - **Vider le cache** reloads the page without cache and keeps you signed in;
   - **Se déconnecter** wipes the site's cookies and data. It needs two clicks to confirm.
@@ -318,6 +319,27 @@ Behaviour:
 - **Shortcuts and version**: a shortcut cheat sheet, plus the app, Electron and Chromium versions.
 
 The chevron at the bottom of the rail shows the AI names. The app remembers the window size, its maximised state and the last AI. Under Wayland the compositor places windows, so the position is not restored.
+
+### Signing in with your browser
+
+Google and some providers block sign-in from any embedded browser engine ("this browser may not be secure"), and that block is especially stubborn on macOS. These sites are also not OAuth providers for third-party apps, so there is no real "log in and get redirected back to the app" flow.
+
+What the app does instead, per AI, in **Réglages → Intelligences artificielles**:
+
+1. **Se connecter via le navigateur** opens that AI's sign-in page in your **default system browser**, where sign-in always works.
+2. Once you are signed in there, pick your browser under **Importer depuis** and click **Importer ma session**. The app reads that site's session cookies from your browser and injects them into the AI's isolated storage, then reloads the page — now you are signed in inside the app.
+
+It only ever reads cookies for that AI's own domains (for example `claude.ai`, `chatgpt.com`, or `muse.ai` and the Meta domains), never your Google or Apple account, and nothing leaves your machine.
+
+Supported browsers, auto-detected:
+
+| Browser | Platforms | Notes |
+|---|---|---|
+| Firefox / LibreWolf | Linux, macOS, Windows | native, Flatpak and Snap installs |
+| Safari | macOS | reads `Cookies.binarycookies` |
+| Chrome / Chromium / Brave / Edge / Vivaldi | Linux, macOS | best effort: cookies are encrypted, so this needs the system keyring (GNOME Keyring / KWallet on Linux, the Keychain on macOS, which prompts once) |
+
+If an import finds nothing, make sure you are actually signed in to that site **in the browser you picked**, then try again. The regular embedded sign-in (including the Google/Firefox workaround) still works too; browser login is the more reliable path when it does not.
 
 ---
 
@@ -401,7 +423,7 @@ The tint strength is set in the settings (Appearance → Teinte des surfaces). S
 
 ## 10. Troubleshooting
 
-**Google says "This browser or app may not be secure".** Google rejects embedded browsers. On its sign-in pages only, the app presents itself as Firefox (headers and `navigator`); it stays Chrome everywhere else. If the block comes back after a Google change, check that `accounts.google.com` is still in `GOOGLE_AUTH_HOSTS` (`src/shared/protocol.ts`).
+**Google says "This browser or app may not be secure".** Google rejects embedded browsers. On its sign-in pages only, the app presents itself as Firefox (headers and `navigator`); it stays Chrome everywhere else. If the block persists (it is most stubborn on macOS), use **[Signing in with your browser](#signing-in-with-your-browser)** instead: sign in in your real browser and import the session. If the embedded workaround breaks after a Google change, check that `accounts.google.com` is still in `GOOGLE_AUTH_HOSTS` (`src/shared/protocol.ts`).
 
 **Opening the app from the menu does nothing.** Another instance is already running, possibly a `npm run dev` one hidden in the tray. The new one brings it forward and exits. Quit it (tray → Quitter) first.
 
@@ -436,6 +458,7 @@ src/
     sessions.ts              persistent partitions, user agent, permissions, Firefox identity for Google
     navigation.ts            allowed domains, OAuth popups, external links
     notifications.ts         hub: dedup, badges, do not disturb, click → right AI
+    browser-cookies.ts       read the user's browser cookies (Firefox/Chromium/Safari) for an AI
     skins.ts                 CSS skin injection
     startup.ts               launch at login, global shortcut
     tray.ts  menu.ts  shortcuts.ts  store.ts  config.ts  paths.ts
