@@ -68,16 +68,25 @@ function mtime(path: string): number {
 
 // ---------- Detection ----------
 
-/** Firefox-family profile roots across native, Flatpak and Snap installs. */
-function firefoxRoots(): { label: string; root: string }[] {
-  const roots: { label: string; root: string }[] = []
-  const add = (label: string, root: string) => existsSync(root) && roots.push({ label, root })
+/**
+ * Firefox-family base directories (each holds profiles.ini and the profiles). Covers native,
+ * Flatpak, Snap and the XDG ~/.config/mozilla layout. The base differs from the Profiles dir: on
+ * macOS/Windows profiles sit under <base>/Profiles, on Linux directly under <base>.
+ */
+function firefoxBases(): { label: string; base: string }[] {
+  const bases: { label: string; base: string }[] = []
+  const add = (label: string, base: string) => existsSync(base) && bases.push({ label, base })
   if (isMac) {
-    add('Firefox', join(home, 'Library', 'Application Support', 'Firefox', 'Profiles'))
-    add('LibreWolf', join(home, 'Library', 'Application Support', 'LibreWolf', 'Profiles'))
+    const sup = join(home, 'Library', 'Application Support')
+    add('Firefox', join(sup, 'Firefox'))
+    add('Firefox', join(sup, 'Firefox Developer Edition'))
+    add('Firefox Nightly', join(sup, 'Firefox Nightly'))
+    add('LibreWolf', join(sup, 'LibreWolf'))
+    add('Waterfox', join(sup, 'Waterfox'))
   } else if (isWin) {
-    add('Firefox', join(appData(), 'Mozilla', 'Firefox', 'Profiles'))
-    add('LibreWolf', join(appData(), 'LibreWolf', 'Profiles'))
+    add('Firefox', join(appData(), 'Mozilla', 'Firefox'))
+    add('LibreWolf', join(appData(), 'LibreWolf'))
+    add('Waterfox', join(appData(), 'Waterfox'))
   } else {
     add('Firefox', join(home, '.mozilla', 'firefox'))
     // Some builds/configs honour XDG and store the profile under ~/.config/mozilla instead.
@@ -87,21 +96,47 @@ function firefoxRoots(): { label: string; root: string }[] {
     add('LibreWolf', join(home, '.librewolf'))
     add('LibreWolf', join(appData(), 'librewolf'))
     add('LibreWolf', join(home, '.var', 'app', 'io.gitlab.librewolf-community', '.librewolf'))
+    add('Waterfox', join(home, '.waterfox'))
   }
-  return roots
+  return bases
+}
+
+/** Profile directories inside a Firefox base: from profiles.ini, plus a scan of likely subdirs. */
+function firefoxProfileDirs(base: string): string[] {
+  const dirs = new Set<string>()
+  // profiles.ini is how Firefox itself locates profiles, wherever they live.
+  try {
+    const ini = readFileSync(join(base, 'profiles.ini'), 'utf8')
+    let relative = true
+    for (const raw of ini.split(/\r?\n/)) {
+      const line = raw.trim()
+      if (line.startsWith('[')) relative = true
+      const m = /^(IsRelative|Path)\s*=\s*(.+)$/i.exec(line)
+      if (!m) continue
+      if (/isrelative/i.test(m[1])) relative = m[2].trim() === '1'
+      else dirs.add(relative ? join(base, m[2].trim()) : m[2].trim())
+    }
+  } catch {
+    /* no profiles.ini: fall back to scanning */
+  }
+  // Fallbacks: profiles directly under the base, and under base/Profiles (macOS/Windows layout).
+  for (const name of safeList(base)) dirs.add(join(base, name))
+  for (const name of safeList(join(base, 'Profiles'))) dirs.add(join(base, 'Profiles', name))
+  return [...dirs]
 }
 
 function detectFirefox(): BrowserProfile[] {
   const out: BrowserProfile[] = []
-  for (const { label, root } of firefoxRoots()) {
-    // Each profile is a subdir with a cookies.sqlite; pick those that have one.
-    for (const name of safeList(root)) {
-      const cookiePath = join(root, name, 'cookies.sqlite')
-      if (!existsSync(cookiePath)) continue
+  const seen = new Set<string>()
+  for (const { label, base } of firefoxBases()) {
+    for (const dir of firefoxProfileDirs(base)) {
+      const cookiePath = join(dir, 'cookies.sqlite')
+      if (seen.has(cookiePath) || !existsSync(cookiePath)) continue
+      seen.add(cookiePath)
       out.push({
-        id: `firefox:${root}:${name}`,
+        id: `firefox:${cookiePath}`,
         kind: 'firefox',
-        label: out.some((p) => p.label.startsWith(label)) ? `${label} — ${name.replace(/\.default.*/, '')}` : label,
+        label: out.some((p) => p.label === label) ? `${label} — ${dir.split(/[\\/]/).pop()?.replace(/\.default.*/, '') ?? ''}` : label,
         cookiePath,
         lastUsed: mtime(cookiePath),
       })
