@@ -51,7 +51,36 @@ export class ViewManager extends EventEmitter<{ changed: []; 'login-cancelled': 
     for (const e of this.views.values()) e.view.setBackgroundColor(color)
   }
 
-  private create(ai: AiConfig): void {
+  /** Adds a new AI at runtime: creates its view and appends it to the list. Returns the view. */
+  add(ai: AiConfig): AiView {
+    this.ais.push(ai)
+    return this.create(ai)
+  }
+
+  /** Removes an AI at runtime: switches away if active, then destroys and forgets its view. */
+  remove(id: string): void {
+    const entry = this.views.get(id)
+    if (!entry) return
+    if (this.activeId === id) {
+      const next = this.ais.find((a) => a.id !== id && this.prefs.enabled(a.id)) ?? this.ais.find((a) => a.id !== id)
+      if (next) this.select(next.id)
+      else this.activeId = null
+    }
+    if (this.loginAiId === id) this.loginAiId = null
+    entry.view.setVisible(false)
+    this.win.contentView.removeChildView(entry.view)
+    try {
+      entry.view.webContents.close()
+    } catch {
+      /* already gone */
+    }
+    this.views.delete(id)
+    const i = this.ais.findIndex((a) => a.id === id)
+    if (i >= 0) this.ais.splice(i, 1)
+    this.emit('changed')
+  }
+
+  private create(ai: AiConfig): AiView {
     const view = new WebContentsView({
       webPreferences: {
         session: prepareSession(ai),
@@ -84,6 +113,7 @@ export class ViewManager extends EventEmitter<{ changed: []; 'login-cancelled': 
       console.error(`[views] ${ai.id} : processus terminé (${details.reason}), rechargement`)
       if (details.reason !== 'clean-exit') wc.reload()
     })
+    return entry
   }
 
   /** Loads a view if it is not yet (e.g. an AI that was just shown again). */

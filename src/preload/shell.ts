@@ -24,6 +24,9 @@ const api: ShellApi = {
   openPath: (which) => ipcRenderer.send(IPC.openPath, which),
   testNotification: (aiId) => ipcRenderer.send(IPC.testNotification, aiId),
   aiAction: (aiId, action) => ipcRenderer.invoke(IPC.aiAction, aiId, action),
+  addAi: (spec) => ipcRenderer.invoke(IPC.addAi, spec),
+  removeAi: (id) => ipcRenderer.invoke(IPC.removeAi, id),
+  renameAi: (id, name) => ipcRenderer.invoke(IPC.renameAi, id, name),
   onLoginStatus: (listener) => {
     const wrapped = (_e: unknown, status: Parameters<typeof listener>[0]) => listener(status)
     ipcRenderer.on(IPC.loginStatus, wrapped)

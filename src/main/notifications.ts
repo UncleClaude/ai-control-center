@@ -63,13 +63,30 @@ export class NotificationHub extends EventEmitter<{ badges: [Record<string, numb
   private readonly live = new Set<Notification>()
   private readonly icons = new Map<string, NativeImage>()
 
+  private readonly fallbackIcon = nativeImage.createFromPath(resourcePath('icons', 'app.png'))
+
   constructor(private readonly deps: HubDeps) {
     super()
-    const fallback = nativeImage.createFromPath(resourcePath('icons', 'app.png'))
-    for (const ai of deps.ais) {
-      this.tracks.set(ai.id, { pending: [], timer: null, lastAt: 0, lastKey: '', lastKind: null, armed: true })
-      const img = ai.iconPng ? nativeImage.createFromPath(ai.iconPng) : null
-      this.icons.set(ai.id, img && !img.isEmpty() ? img : fallback)
+    for (const ai of deps.ais) this.addAi(ai)
+  }
+
+  /** Starts tracking an AI added at runtime (deps.ais already includes it — shared array). */
+  addAi(ai: AiConfig): void {
+    if (this.tracks.has(ai.id)) return
+    this.tracks.set(ai.id, { pending: [], timer: null, lastAt: 0, lastKey: '', lastKind: null, armed: true })
+    const img = ai.iconPng ? nativeImage.createFromPath(ai.iconPng) : null
+    this.icons.set(ai.id, img && !img.isEmpty() ? img : this.fallbackIcon)
+  }
+
+  /** Forgets an AI that was deleted. */
+  removeAi(id: string): void {
+    const track = this.tracks.get(id)
+    if (track?.timer) clearTimeout(track.timer)
+    this.tracks.delete(id)
+    this.icons.delete(id)
+    if (this.badges[id]) {
+      delete this.badges[id]
+      this.emit('badges', this.badgeCounts)
     }
   }
 

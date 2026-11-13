@@ -302,7 +302,12 @@ Behaviour:
   - page zoom, 50 to 200 %;
   - **Tester** shows a sample notification;
   - **Vider le cache** reloads the page without cache and keeps you signed in;
-  - **Se déconnecter** wipes the site's cookies and data. It needs two clicks to confirm.
+  - **Se déconnecter** wipes the site's cookies and data. It needs two clicks to confirm;
+  - click an AI's name to **rename** it;
+  - **Supprimer** removes an AI you added (two clicks to confirm); the three built-in AIs can only be hidden.
+- **Add an AI** (bottom of the AI list, no restart):
+  - **Nouvelle instance** — pick an existing AI, give it a name, and get a second copy with its **own login**: a Claude for work and a Claude for personal, two ChatGPT accounts, and so on;
+  - **Service personnalisé** — add any web app by name + URL (self-hosted **OpenWebUI**, **openclaw**, **LibreChat**, Le Chat, Perplexity…). Browser sign-in (Google/Apple) is handled the same as for the built-in AIs.
 - **Appearance**:
   - System / Light / Dark theme, applied to the app and to sites that follow the system theme;
   - surface tint (0–30 %, live preview);
@@ -358,7 +363,14 @@ At launch the app checks the project's GitHub releases for a newer version. If t
 
 ## 7. Adding an AI
 
-Edit `~/.config/ai-control-center/ais.json` (Réglages → Fichiers), then restart:
+The easy way is **Réglages → Intelligences artificielles → Add an AI**, which takes effect immediately (no restart):
+
+- **Nouvelle instance** duplicates an existing AI into a second entry with its own session — e.g. a work Claude and a personal Claude, each signed in to a different account.
+- **Service personnalisé** adds any web app by name + URL: a self-hosted **OpenWebUI** or **openclaw** instance, **LibreChat**, Le Chat, Perplexity, etc. It gets a generic adapter, its own persistent session, notifications and the full UI; sign in with Google/Apple works just like the built-in AIs.
+
+Added AIs are written to `ais.json`, so they survive restarts, and can be renamed, recoloured, reordered, hidden or deleted from the settings. Each instance has its own cookie store (`persist:ai-<id>`), so logins never mix.
+
+For finer control you can still edit `~/.config/ai-control-center/ais.json` (Réglages → Fichiers) directly, then restart:
 
 ```json
 {

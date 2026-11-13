@@ -22,49 +22,76 @@ const AiSchema = z.object({
 
 const ConfigSchema = z.object({ ais: z.array(AiSchema).min(1) })
 
-export type AiConfig = z.infer<typeof AiSchema> & {
+/** A raw ais.json entry (schema-validated, defaults applied), before icon/accent resolution. */
+export type RawAi = z.infer<typeof AiSchema>
+
+export type AiConfig = RawAi & {
   iconDataUrl: string
   /** Raster icon for native notifications (they cannot render SVG); null = app icon. */
   iconPng: string | null
   accent: string
 }
 
+const BUILTIN = ConfigSchema.parse(defaults).ais
+const BUILTIN_IDS = new Set(BUILTIN.map((a) => a.id))
+const BUILTIN_BY_ID = new Map(BUILTIN.map((a) => [a.id, a]))
+
+/** True for the three bundled AIs: they can be hidden but never deleted. */
+export function isBuiltInId(id: string): boolean {
+  return BUILTIN_IDS.has(id)
+}
+
 export function configFilePath(): string {
   return join(app.getPath('userData'), 'ais.json')
 }
 
-/** Loads the user's ais.json (created from the bundled defaults on first run). */
-export function loadAiConfig(): AiConfig[] {
+/** Reads ais.json as a raw array — all entries, disabled ones included (created on first run). */
+export function loadRawConfig(): RawAi[] {
   const file = configFilePath()
   if (!existsSync(file)) {
     mkdirSync(dirname(file), { recursive: true })
     writeFileSync(file, JSON.stringify(defaults, null, 2) + '\n')
   }
-  let parsed: z.infer<typeof ConfigSchema>
   try {
-    parsed = ConfigSchema.parse(JSON.parse(readFileSync(file, 'utf8')))
+    const parsed = ConfigSchema.parse(JSON.parse(readFileSync(file, 'utf8')))
     const ids = parsed.ais.map((a) => a.id)
     const dup = ids.find((id, i) => ids.indexOf(id) !== i)
     if (dup) throw new Error(`id en double : ${dup}`)
+    return parsed.ais
   } catch (error) {
     console.error(`[config] ${file} invalide, utilisation des valeurs par défaut :`, error)
-    parsed = ConfigSchema.parse(defaults)
+    return ConfigSchema.parse(defaults).ais
   }
-  const builtIn = new Map(ConfigSchema.parse(defaults).ais.map((a) => [a.id, a]))
-  return parsed.ais
+}
+
+/** Validates and writes the raw config array back to ais.json. */
+export function saveRawConfig(ais: RawAi[]): void {
+  const file = configFilePath()
+  const data = ConfigSchema.parse({ ais })
+  mkdirSync(dirname(file), { recursive: true })
+  writeFileSync(file, JSON.stringify(data, null, 2) + '\n')
+}
+
+/** Resolves one raw entry into a runtime AiConfig (icon data URLs, accent fallback). */
+export function materializeAi(ai: RawAi): AiConfig {
+  const configDir = dirname(configFilePath())
+  const host = new URL(ai.url).hostname.replace(/^www\./, '')
+  const allowedDomains = [...new Set([host, ...ai.allowedDomains.map((d) => d.toLowerCase())])]
+  return {
+    ...ai,
+    allowedDomains,
+    // Configs written before a field existed fall back to the bundled default for that id.
+    accent: ai.accent ?? BUILTIN_BY_ID.get(ai.id)?.accent ?? hashColor(ai.name),
+    iconDataUrl: resolveIcon(ai.icon, ai.name, configDir),
+    iconPng: resolvePng(ai.icon, configDir),
+  }
+}
+
+/** Loads the user's ais.json (created from the bundled defaults on first run). */
+export function loadAiConfig(): AiConfig[] {
+  return loadRawConfig()
     .filter((ai) => ai.enabled)
-    .map((ai) => {
-      const host = new URL(ai.url).hostname.replace(/^www\./, '')
-      const allowedDomains = [...new Set([host, ...ai.allowedDomains.map((d) => d.toLowerCase())])]
-      return {
-        ...ai,
-        allowedDomains,
-        // Configs written before a field existed fall back to the bundled default for that id.
-        accent: ai.accent ?? builtIn.get(ai.id)?.accent ?? hashColor(ai.name),
-        iconDataUrl: resolveIcon(ai.icon, ai.name, dirname(file)),
-        iconPng: resolvePng(ai.icon, dirname(file)),
-      }
-    })
+    .map(materializeAi)
 }
 
 function resolveIcon(icon: string | undefined, name: string, configDir: string): string {

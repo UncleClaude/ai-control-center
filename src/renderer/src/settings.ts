@@ -1,4 +1,4 @@
-import type { AiAction, AiPublic, AiSettings, GlassPreference, Platform, Settings, SettingsPatch, ThemePreference } from '../../shared/protocol'
+import type { AddAiSpec, AiAction, AiPublic, AiSettings, GlassPreference, Platform, Settings, SettingsPatch, ThemePreference } from '../../shared/protocol'
 import { icons } from './icons'
 
 const api = window.aicc
@@ -166,7 +166,85 @@ export class SettingsPanel {
   private aiSection(s: Settings): HTMLElement {
     const cards = s.ais.map((ai, i) => this.aiCard(s, ai, s.ai[ai.id], i))
     const note = el('p', 'field-note', 'L’ordre détermine aussi les raccourcis (Ctrl+1, Ctrl+2…). Une IA masquée n’est pas chargée.')
-    return section('Intelligences artificielles', ...cards, note)
+    return section('Intelligences artificielles', ...cards, this.addAiBox(s), note)
+  }
+
+  /** Mutating call (add / remove / rename). On success redraws from the returned settings. */
+  private async mutateAi(run: () => Promise<{ settings: Settings; error?: string }>, onError?: (msg: string) => void): Promise<void> {
+    const r = await run()
+    if (r.error) onError?.(r.error)
+    else {
+      this.settings = r.settings
+      this.render()
+    }
+  }
+
+  private addAiBox(s: Settings): HTMLElement {
+    // Instance: a second, independently-logged-in copy of an existing AI.
+    const baseSel = el('select', 'select')
+    baseSel.setAttribute('aria-label', 'IA à dupliquer')
+    for (const a of s.ais) {
+      const o = el('option', undefined, a.name)
+      o.value = a.id
+      baseSel.append(o)
+    }
+    const instName = el('input', 'text-input')
+    instName.type = 'text'
+    instName.placeholder = 'Nom (ex. Claude Travail)'
+    instName.maxLength = 60
+    const instErr = el('p', 'field-note warn')
+    instErr.hidden = true
+    const instBtn = pill(icons.plus, 'Dupliquer', 'Créer une autre instance avec sa propre connexion', (b) => {
+      b.disabled = true
+      void this.mutateAi(
+        () => api.addAi({ kind: 'instance', baseId: baseSel.value, name: instName.value.trim() || undefined }),
+        (msg) => {
+          b.disabled = false
+          instErr.textContent = msg
+          instErr.hidden = false
+        },
+      )
+    })
+    const instRow = el('div', 'add-ai-row')
+    instRow.append(baseSel, instName, instBtn)
+
+    // Custom: any web service (OpenWebUI, openclaw, LibreChat…) by its address.
+    const custName = el('input', 'text-input')
+    custName.type = 'text'
+    custName.placeholder = 'Nom (ex. OpenWebUI)'
+    custName.maxLength = 60
+    const custUrl = el('input', 'text-input')
+    custUrl.type = 'url'
+    custUrl.placeholder = 'https://chat.exemple.com'
+    custUrl.maxLength = 300
+    const custErr = el('p', 'field-note warn')
+    custErr.hidden = true
+    const custBtn = pill(icons.plus, 'Ajouter', 'Ajouter un service web personnalisé', (b) => {
+      b.disabled = true
+      void this.mutateAi(
+        () => api.addAi({ kind: 'custom', name: custName.value, url: custUrl.value } satisfies AddAiSpec),
+        (msg) => {
+          b.disabled = false
+          custErr.textContent = msg
+          custErr.hidden = false
+        },
+      )
+    })
+    const custRow = el('div', 'add-ai-row')
+    custRow.append(custName, custUrl, custBtn)
+
+    const wrap = el('div', 'add-ai')
+    wrap.append(
+      el('h3', 'add-ai-title', 'Nouvelle instance (connexion séparée)'),
+      el('p', 'field-note', 'Une deuxième connexion à la même IA — un Claude perso et un Claude travail, par exemple.'),
+      instRow,
+      instErr,
+      el('h3', 'add-ai-title', 'Service personnalisé'),
+      el('p', 'field-note', 'Ajoute n’importe quel service web (OpenWebUI, openclaw, LibreChat…) par son adresse. Connexion Google/Apple gérée comme pour les autres.'),
+      custRow,
+      custErr,
+    )
+    return box(wrap)
   }
 
   private aiCard(s: Settings, ai: AiPublic, prefs: AiSettings, index: number): HTMLElement {
@@ -192,7 +270,7 @@ export class SettingsPanel {
     const visibleCount = Object.values(s.ai).filter((a) => a.enabled).length
     head.append(
       img,
-      el('span', 'ai-card-name', ai.name),
+      this.editableName(ai),
       order,
       toggle(
         'Afficher',
@@ -257,8 +335,90 @@ export class SettingsPanel {
       this.actionButton(ai, 'clear-cache', icons.trash, 'Vider le cache', 'Vide le cache et recharge la page (la connexion est conservée)'),
       this.actionButton(ai, 'sign-out', icons.logout, 'Se déconnecter', 'Efface cookies et données du site : vous devrez vous reconnecter'),
     )
+    if (!prefs.builtIn) actions.append(this.deleteButton(ai))
     card.append(actions)
     return card
+  }
+
+  /** The AI name, click (or Enter) to rename in place. */
+  private editableName(ai: AiPublic): HTMLElement {
+    const span = el('span', 'ai-card-name editable', ai.name)
+    span.title = 'Cliquer pour renommer'
+    span.tabIndex = 0
+    span.setAttribute('role', 'button')
+    const start = () => {
+      const input = el('input', 'ai-name-input')
+      input.type = 'text'
+      input.value = ai.name
+      input.maxLength = 60
+      input.setAttribute('aria-label', `Renommer ${ai.name}`)
+      let done = false
+      const finish = (save: boolean) => {
+        if (done) return
+        done = true
+        const v = input.value.trim()
+        if (save && v && v !== ai.name) void this.mutateAi(() => api.renameAi(ai.id, v))
+        else this.render()
+      }
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault()
+          finish(true)
+        } else if (e.key === 'Escape') {
+          e.stopPropagation()
+          finish(false)
+        }
+      })
+      input.addEventListener('blur', () => finish(true))
+      span.replaceWith(input)
+      input.focus()
+      input.select()
+    }
+    span.addEventListener('click', start)
+    span.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        start()
+      }
+    })
+    return span
+  }
+
+  /** Delete button for a user-added AI: asks for a second click within 4 s. */
+  private deleteButton(ai: AiPublic): HTMLButtonElement {
+    let armed = false
+    let timer: number | undefined
+    const label = (b: HTMLButtonElement, t: string) => (b.querySelector('span')!.textContent = t)
+    return pill(
+      icons.trash,
+      'Supprimer',
+      'Supprimer cette IA et toutes ses données',
+      (b) => {
+        if (!armed) {
+          armed = true
+          b.classList.add('confirm')
+          label(b, `Supprimer ${ai.name} ?`)
+          timer = window.setTimeout(() => {
+            armed = false
+            b.classList.remove('confirm')
+            label(b, 'Supprimer')
+          }, 4000)
+          return
+        }
+        window.clearTimeout(timer)
+        armed = false
+        b.disabled = true
+        void this.mutateAi(
+          () => api.removeAi(ai.id),
+          (msg) => {
+            b.disabled = false
+            b.classList.remove('confirm')
+            label(b, msg.slice(0, 20))
+          },
+        )
+      },
+      'danger',
+    )
   }
 
   /** Cache / sign-out buttons. Sign-out asks for a second click within 4 s. */

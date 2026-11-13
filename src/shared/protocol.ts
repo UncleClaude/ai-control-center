@@ -67,6 +67,12 @@ export const IPC = {
   openPath: 'shell:open-path',
   testNotification: 'shell:test-notification',
   aiAction: 'shell:ai-action',
+  /** shell → main: create a new AI (instance of an existing one, or a custom service). */
+  addAi: 'shell:add-ai',
+  /** shell → main: delete a user-added AI. */
+  removeAi: 'shell:remove-ai',
+  /** shell → main: rename an AI. */
+  renameAi: 'shell:rename-ai',
   /** main → shell: a browser sign-in is in progress / finished for an AI. */
   loginStatus: 'shell:login-status',
   /** shell → main: the overlay's finish / cancel / reopen buttons. */
@@ -122,6 +128,22 @@ export interface AiSettings {
   accent: string
   accentCustom: boolean
   zoom: number
+  /** One of the three bundled AIs: can be hidden and renamed, but not deleted. */
+  builtIn: boolean
+  /** The service URL, shown on custom entries. */
+  url: string
+}
+
+/** Create a new AI entry: a fresh instance of an existing AI (own login), or a custom service. */
+export type AddAiSpec =
+  | { kind: 'instance'; baseId: string; name?: string }
+  | { kind: 'custom'; name: string; url: string }
+
+/** Result of add / remove / rename: the refreshed settings, plus the new id (on add) or an error. */
+export interface MutateAiResult {
+  settings: Settings
+  id?: string
+  error?: string
 }
 
 export interface Settings {
@@ -200,6 +222,12 @@ export interface ShellApi {
   openPath(which: 'config' | 'skins' | 'data'): void
   testNotification(aiId: string): void
   aiAction(aiId: string, action: AiAction): Promise<boolean>
+  /** Create a new AI (instance of an existing one, or a custom service like OpenWebUI). */
+  addAi(spec: AddAiSpec): Promise<MutateAiResult>
+  /** Delete a user-added AI (built-in ones can only be hidden). */
+  removeAi(id: string): Promise<MutateAiResult>
+  /** Rename an AI. */
+  renameAi(id: string, name: string): Promise<MutateAiResult>
   /** Browser sign-in progress, pushed from main. */
   onLoginStatus(listener: (status: LoginStatus) => void): () => void
   /** The login overlay's finish / cancel / reopen buttons. */

@@ -1,10 +1,10 @@
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { app, globalShortcut, ipcMain, nativeTheme, screen, shell, WebContentsView, type BaseWindow, type IpcMainEvent } from 'electron'
+import { app, globalShortcut, ipcMain, nativeTheme, screen, session, shell, WebContentsView, type BaseWindow, type IpcMainEvent } from 'electron'
 import { z } from 'zod'
-import { IPC, type AiPublic, type GlassPreference, type LoginState, type LoginStatus, type Platform, type Settings, type ShellState, type SiteRole } from '../shared/protocol'
+import { IPC, type AddAiSpec, type AiPublic, type GlassPreference, type LoginState, type LoginStatus, type Platform, type Settings, type ShellState, type SiteRole } from '../shared/protocol'
 import { detectBrowsers, hasSession, macNeedsFullDiskAccess, probe, readCookies, type BrowserProfile } from './browser-cookies'
-import { configFilePath, loadAiConfig, type AiConfig } from './config'
+import { configFilePath, isBuiltInId, loadAiConfig, loadRawConfig, materializeAi, saveRawConfig, type AiConfig, type RawAi } from './config'
 import { detectGlass, type GlassInfo } from './glass'
 import { installMenu } from './menu'
 import { openExternal } from './navigation'
@@ -72,6 +72,137 @@ const publicAi = (ai: AiConfig): AiPublic => ({ id: ai.id, name: ai.name, icon: 
 
 function applyAccent(ai: AiConfig): void {
   ai.accent = store.aiPrefs(ai.id).accent ?? baseAccent.get(ai.id) ?? ai.accent
+}
+
+// ---------- Adding, removing and renaming AIs at runtime ----------
+
+/** A URL-safe id from a label (accents stripped); falls back to 'ia'. */
+function slugId(label: string): string {
+  const s = label
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40)
+  return s || 'ia'
+}
+
+/** First free id built from `base` (base, base-2, base-3…), avoiding the current config. */
+function uniqueId(base: string, taken: Set<string>): string {
+  if (!taken.has(base)) return base
+  for (let n = 2; ; n++) {
+    const id = `${base}-${n}`
+    if (!taken.has(id)) return id
+  }
+}
+
+/** Creates the runtime state for a freshly-added AI (view, notifications, skin, menus). */
+function mountAi(entry: RawAi): AiConfig {
+  const ai = materializeAi(entry)
+  baseAccent.set(ai.id, ai.accent)
+  applyAccent(ai)
+  const added = views!.add(ai)
+  attachShortcuts(added.view.webContents, handlers)
+  skins?.attach(added.view.webContents)
+  hub?.addAi(ai)
+  views!.ensureLoaded(ai.id)
+  installMenu(visibleAis(), handlers)
+  tray?.refresh()
+  pushState()
+  return ai
+}
+
+/** Adds an instance of an existing AI (own login) or a brand-new custom service. */
+function addAi(spec: AddAiSpec): { id?: string; error?: string } {
+  if (!views) return { error: 'application non prête' }
+  const raw = loadRawConfig()
+  const taken = new Set(raw.map((a) => a.id))
+  let entry: RawAi
+  if (spec.kind === 'instance') {
+    const base = raw.find((a) => a.id === spec.baseId)
+    if (!base) return { error: 'IA de base introuvable' }
+    const name = spec.name?.trim() || `${base.name} 2`
+    const id = uniqueId(slugId(spec.name?.trim() || base.id), taken)
+    // Copy everything (url, icon, adapter, accent, allowedDomains) but give it its own id + session.
+    entry = { ...base, id, name, enabled: true }
+  } else {
+    const name = spec.name.trim()
+    if (!name) return { error: 'Nom requis' }
+    let url: string
+    try {
+      const u = new URL(spec.url.trim())
+      if (u.protocol !== 'http:' && u.protocol !== 'https:') throw new Error('protocole')
+      url = u.toString()
+    } catch {
+      return { error: 'URL invalide (ex. https://chat.example.com)' }
+    }
+    const id = uniqueId(slugId(name), taken)
+    entry = { id, name, url, allowedDomains: [], enabled: true }
+  }
+  try {
+    saveRawConfig([...raw, entry])
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : String(error) }
+  }
+  const ai = mountAi(entry)
+  console.info(`[config] IA ajoutée : ${ai.id} (${ai.name})`)
+  return { id: ai.id }
+}
+
+/** Deletes a user-added AI: destroys its view, clears its session, forgets its preferences. */
+function removeAi(id: string): { error?: string } {
+  if (isBuiltInId(id)) return { error: 'IA intégrée (masquez-la plutôt que de la supprimer)' }
+  const raw = loadRawConfig()
+  if (!raw.some((a) => a.id === id)) return { error: 'introuvable' }
+  try {
+    saveRawConfig(raw.filter((a) => a.id !== id))
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : String(error) }
+  }
+  views?.remove(id)
+  hub?.removeAi(id)
+  baseAccent.delete(id)
+  store.update((s) => {
+    delete s.prefs.ai[id]
+    s.prefs.order = s.prefs.order.filter((x) => x !== id)
+    if (s.lastAiId === id) s.lastAiId = null
+    if (s.prefs.startupAi === id) s.prefs.startupAi = 'last'
+  })
+  // Wipe the deleted instance's cookies and local data so a reused id never inherits a stale login.
+  void session.fromPartition(`persist:ai-${id}`).clearStorageData().catch(() => undefined)
+  // Never leave the rail empty.
+  if (visibleAis().length === 0) {
+    const first = orderedAis()[0]
+    if (first) store.update((s) => (s.prefs.ai[first.id] = { ...store.aiPrefs(first.id), enabled: true }))
+  }
+  if (views && !store.aiPrefs(views.activeId ?? '').enabled) views.select(visibleAis()[0]?.id)
+  installMenu(visibleAis(), handlers)
+  tray?.refresh()
+  pushState()
+  console.info(`[config] IA supprimée : ${id}`)
+  return {}
+}
+
+/** Renames any AI (built-in included); the id and session stay the same. */
+function renameAi(id: string, name: string): { error?: string } {
+  const nm = name.trim().slice(0, 60)
+  if (!nm) return { error: 'Nom requis' }
+  const raw = loadRawConfig()
+  const entry = raw.find((a) => a.id === id)
+  if (!entry) return { error: 'introuvable' }
+  entry.name = nm
+  try {
+    saveRawConfig(raw)
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : String(error) }
+  }
+  const ai = views?.views.get(id)?.ai
+  if (ai) ai.name = nm
+  installMenu(visibleAis(), handlers)
+  tray?.refresh()
+  pushState()
+  return {}
 }
 
 // ---------- Shell state ----------
@@ -256,6 +387,8 @@ function registerIpc(): void {
               accent: ai.accent,
               accentCustom: prefs.accent !== null,
               zoom: prefs.zoom,
+              builtIn: isBuiltInId(ai.id),
+              url: ai.url,
             },
           ]
         }),
@@ -341,6 +474,26 @@ function registerIpc(): void {
     if (!fromShell(e)) return
     const act = z.enum(['finish', 'cancel', 'reopen', 'fda']).parse(action)
     void handleLoginAction(Id.parse(id), act)
+  })
+
+  const AddSpec = z.discriminatedUnion('kind', [
+    z.object({ kind: z.literal('instance'), baseId: Id, name: z.string().max(60).optional() }),
+    z.object({ kind: z.literal('custom'), name: z.string().min(1).max(60), url: z.string().min(1).max(300) }),
+  ])
+  ipcMain.handle(IPC.addAi, (e, raw) => {
+    if (!fromShell(e)) return null
+    const { id, error } = addAi(AddSpec.parse(raw))
+    return { settings: settings(), id, error }
+  })
+  ipcMain.handle(IPC.removeAi, (e, id) => {
+    if (!fromShell(e)) return null
+    const { error } = removeAi(Id.parse(id))
+    return { settings: settings(), error }
+  })
+  ipcMain.handle(IPC.renameAi, (e, id, name) => {
+    if (!fromShell(e)) return null
+    const { error } = renameAi(Id.parse(id), z.string().max(80).parse(name))
+    return { settings: settings(), error }
   })
 
   ipcMain.handle(IPC.checkUpdate, async (e) => {
