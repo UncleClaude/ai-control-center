@@ -80,9 +80,12 @@ function firefoxRoots(): { label: string; root: string }[] {
     add('LibreWolf', join(appData(), 'LibreWolf', 'Profiles'))
   } else {
     add('Firefox', join(home, '.mozilla', 'firefox'))
+    // Some builds/configs honour XDG and store the profile under ~/.config/mozilla instead.
+    add('Firefox', join(appData(), 'mozilla', 'firefox'))
     add('Firefox', join(home, '.var', 'app', 'org.mozilla.firefox', '.mozilla', 'firefox'))
     add('Firefox', join(home, 'snap', 'firefox', 'common', '.mozilla', 'firefox'))
     add('LibreWolf', join(home, '.librewolf'))
+    add('LibreWolf', join(appData(), 'librewolf'))
     add('LibreWolf', join(home, '.var', 'app', 'io.gitlab.librewolf-community', '.librewolf'))
   }
   return roots
