@@ -43,21 +43,25 @@ jobs:
       - name: Package
         shell: bash
         run: |
-          if [ "${{ matrix.os }}" = "macos-latest" ] && [ -n "$CSC_LINK" ]; then
-            # Developer ID cert present: sign and notarize (then the dmg opens without xattr).
-            npx electron-builder ${{ matrix.target }} --publish never -c.mac.notarize=true
+          if [ "${{ matrix.os }}" = "macos-latest" ] && [ -n "$MAC_CSC_LINK" ]; then
+            # Developer ID cert present: import it, sign and notarize (dmg then opens without xattr).
+            export CSC_LINK="$MAC_CSC_LINK" CSC_KEY_PASSWORD="$MAC_CSC_KEY_PASSWORD" CSC_IDENTITY_AUTO_DISCOVERY=true
+            npx electron-builder ${{ matrix.target }} --publish never \
+              -c.mac.identity="Developer ID Application" -c.mac.notarize=true
+          elif [ "${{ matrix.os }}" = "macos-latest" ]; then
+            # No cert: build unsigned (identity:null in config) and don't search the keychain.
+            CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder ${{ matrix.target }} --publish never
           else
             npx electron-builder ${{ matrix.target }} --publish never
           fi
         env:
-          # macOS signing / notarization — all optional; absent ⇒ unsigned build.
-          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          # macOS signing / notarization — all optional; without MAC_CSC_LINK the build is unsigned.
+          # Named MAC_* (not CSC_*) so an empty secret never makes electron-builder attempt signing.
+          MAC_CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          MAC_CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          # Only hunt for a signing identity when a certificate was actually provided.
-          CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.MAC_CSC_LINK != '' && 'true' || 'false' }}
 
       - uses: actions/upload-artifact@v5
         with:

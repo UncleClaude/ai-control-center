@@ -54,9 +54,10 @@ mac:
   hardenedRuntime: true
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
-  # Signed + notarized when a Developer ID cert is provided (CSC_LINK + CSC_KEY_PASSWORD and the
-  # APPLE_* notarization secrets); then the dmg opens without the Gatekeeper quarantine step. With
-  # no cert the CI sets CSC_IDENTITY_AUTO_DISCOVERY=false and the build is unsigned, as before.
+  # Unsigned by default (identity null). The release workflow overrides this with
+  # `-c.mac.identity="Developer ID Application"` and imports a cert only when the signing secrets
+  # exist, then signs + notarizes so the dmg opens without the Gatekeeper quarantine step.
+  identity: null
   extendInfo:
     NSMicrophoneUsageDescription: The AIs use the microphone for voice mode.
     NSCameraUsageDescription: The AIs may use the camera when you ask them to.
