@@ -2,7 +2,7 @@
   "name": "ai-control-center",
   "productName": "AI Control Center",
   "desktopName": "ai-control-center.desktop",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Desktop app gathering Muse, Claude and ChatGPT web apps in one glass window.",
   "license": "MIT",
   "author": "AI Control Center contributors",
