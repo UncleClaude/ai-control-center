@@ -333,6 +333,8 @@ The overlay also offers **J'ai terminé** (import now), **Rouvrir le navigateur*
 
 It only ever reads cookies for that AI's own domains (for example `claude.ai`, `chatgpt.com`, or `muse.ai` and the Meta domains), never your Google or Apple account, and nothing leaves your machine. For Claude and ChatGPT it waits for the actual session cookie, so anti-bot cookies set while signed out never trigger a false "signed in".
 
+> **macOS needs Full Disk Access.** macOS (TCC) blocks apps from reading browser cookie stores — Firefox included — until you grant Full Disk Access. The login overlay detects this and shows a button that opens **System Settings → Privacy & Security → Full Disk Access**; enable **AI Control Center** there, relaunch if macOS asks, and the import works. Without it, the app sees `EPERM` on every browser. A full `login-diagnostic.txt` is written to the data folder (Réglages → Fichiers) if anything still fails.
+
 Browsers are auto-detected:
 
 | Browser | Platforms | Notes |

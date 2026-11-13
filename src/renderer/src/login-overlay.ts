@@ -113,6 +113,21 @@ export class LoginOverlay {
       cancelled: '',
     }
     card.append(el('h2', 'login-title', TITLE[s.state]), el('p', 'login-body', BODY[s.state]))
+
+    // macOS without Full Disk Access: the app cannot read the browser's cookies at all.
+    if (s.needsFda && s.state !== 'done') {
+      const fda = el('div', 'login-fda')
+      fda.append(
+        el('p', 'login-fda-text', 'Sur macOS, autorisez d’abord l’Accès complet au disque pour « AI Control Center », sinon l’app ne peut pas lire votre session. Activez-le, relancez l’app si macOS le demande, puis revenez ici.'),
+      )
+      const openBtn = el('button', 'login-btn primary')
+      openBtn.type = 'button'
+      openBtn.textContent = 'Ouvrir les réglages d’accès au disque'
+      openBtn.addEventListener('click', () => api.loginAction(s.aiId, 'fda'))
+      fda.append(openBtn)
+      card.append(fda)
+    }
+
     if (s.detail) card.append(el('p', 'login-detail', s.detail))
 
     if (s.state !== 'done') {

@@ -197,6 +197,22 @@ function detectSafari(): BrowserProfile[] {
   return cookiePath ? [{ id: `safari:${cookiePath}`, kind: 'safari', label: 'Safari', cookiePath, lastUsed: mtime(cookiePath) }] : []
 }
 
+/**
+ * macOS gates several locations behind Full Disk Access (TCC). Without it the app sees EPERM on
+ * browser cookie stores and cannot even detect a Firefox folder. `~/Library/Safari` is always
+ * present and always FDA-gated, so a failed read of it means the app lacks Full Disk Access.
+ */
+export function macNeedsFullDiskAccess(): boolean {
+  if (!isMac) return false
+  try {
+    readdirSync(join(home, 'Library', 'Safari'))
+    return false
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code
+    return code === 'EPERM' || code === 'EACCES'
+  }
+}
+
 /** Every browser profile we can read cookies from, most-recently-used first. */
 export function detectBrowsers(): BrowserProfile[] {
   const all = [...detectFirefox(), ...detectChromium(), ...detectSafari()]

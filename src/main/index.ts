@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { app, globalShortcut, ipcMain, nativeTheme, screen, shell, WebContentsView, type BaseWindow, type IpcMainEvent } from 'electron'
 import { z } from 'zod'
 import { IPC, type AiPublic, type GlassPreference, type LoginState, type LoginStatus, type Platform, type Settings, type ShellState, type SiteRole } from '../shared/protocol'
-import { detectBrowsers, hasSession, probe, readCookies, type BrowserProfile } from './browser-cookies'
+import { detectBrowsers, hasSession, macNeedsFullDiskAccess, probe, readCookies, type BrowserProfile } from './browser-cookies'
 import { configFilePath, loadAiConfig, type AiConfig } from './config'
 import { detectGlass, type GlassInfo } from './glass'
 import { installMenu } from './menu'
@@ -339,7 +339,7 @@ function registerIpc(): void {
   })
   ipcMain.on(IPC.loginAction, (e, id, action) => {
     if (!fromShell(e)) return
-    const act = z.enum(['finish', 'cancel', 'reopen']).parse(action)
+    const act = z.enum(['finish', 'cancel', 'reopen', 'fda']).parse(action)
     void handleLoginAction(Id.parse(id), act)
   })
 
@@ -436,7 +436,11 @@ function sessionNames(ai: AiConfig): string[] {
   return SESSION_COOKIES[ai.adapter ?? ''] ?? []
 }
 
-function sendLogin(aiId: string, state: LoginState, extra?: { browser?: string; imported?: number; detail?: string }): void {
+function sendLogin(
+  aiId: string,
+  state: LoginState,
+  extra?: { browser?: string; imported?: number; detail?: string; needsFda?: boolean },
+): void {
   shellView?.webContents.send(IPC.loginStatus, { aiId, state, ...extra } satisfies LoginStatus)
 }
 
@@ -568,7 +572,9 @@ function startBrowserLogin(aiId: string): void {
   showWindow(aiId)
   openExternal(entry.ai.url)
   views?.setLoginOverlay(aiId)
-  sendLogin(aiId, 'watching', { detail: loginDetail(detectBrowsers(), false) })
+  // On macOS the cookie stores are unreadable without Full Disk Access: say so upfront.
+  const needsFda = macNeedsFullDiskAccess()
+  sendLogin(aiId, 'watching', { detail: loginDetail(detectBrowsers(), false), needsFda })
   stopLoginWatch(aiId)
   const deadline = Date.now() + 180_000
   const timer = setInterval(() => {
@@ -581,16 +587,21 @@ function startBrowserLogin(aiId: string): void {
         sendLogin(aiId, 'done', { browser: label })
       } else if (Date.now() > deadline) {
         stopLoginWatch(aiId)
-        sendLogin(aiId, 'timeout', { detail: diagnoseLogin(entry) })
+        sendLogin(aiId, 'timeout', { detail: diagnoseLogin(entry), needsFda: macNeedsFullDiskAccess() })
       }
     })()
   }, 2500)
   loginWatches.set(aiId, { timer, deadline })
 }
 
-async function handleLoginAction(aiId: string, action: 'finish' | 'cancel' | 'reopen'): Promise<void> {
+async function handleLoginAction(aiId: string, action: 'finish' | 'cancel' | 'reopen' | 'fda'): Promise<void> {
   const entry = views?.views.get(aiId)
   if (!entry) return
+  if (action === 'fda') {
+    // Opens System Settings → Privacy & Security → Full Disk Access (Ventura and later).
+    void shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_AllFilesAccess')
+    return
+  }
   if (action === 'reopen') {
     openExternal(entry.ai.url)
     return
@@ -609,7 +620,7 @@ async function handleLoginAction(aiId: string, action: 'finish' | 'cancel' | 're
     views?.setLoginOverlay(null)
     sendLogin(aiId, 'done', { browser: label })
   } else {
-    sendLogin(aiId, 'none-found', { detail: diagnoseLogin(entry) })
+    sendLogin(aiId, 'none-found', { detail: diagnoseLogin(entry), needsFda: macNeedsFullDiskAccess() })
   }
 }
 

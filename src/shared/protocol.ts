@@ -90,7 +90,7 @@ export interface UpdateInfoPublic {
 export type UpdateApply = 'relaunch' | 'quit' | 'opened' | 'page'
 
 export type LoginState = 'watching' | 'searching' | 'none-found' | 'done' | 'timeout' | 'cancelled'
-export type LoginAction = 'finish' | 'cancel' | 'reopen'
+export type LoginAction = 'finish' | 'cancel' | 'reopen' | 'fda'
 
 /** Progress of a browser sign-in hand-off, pushed to the shell to drive the overlay. */
 export interface LoginStatus {
@@ -101,6 +101,8 @@ export interface LoginStatus {
   imported?: number
   /** Extra line for the overlay: detected browsers while watching, or a hint on failure. */
   detail?: string
+  /** macOS without Full Disk Access: the overlay shows upfront guidance + an open-settings button. */
+  needsFda?: boolean
 }
 
 export interface WebNotificationPayload {
