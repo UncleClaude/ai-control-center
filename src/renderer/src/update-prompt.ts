@@ -96,6 +96,9 @@ export class UpdatePrompt {
           later.disabled = false
           update_.textContent = 'Réessayer'
           progress.hidden = true
+        } else if (res.result === 'quit') {
+          status.hidden = false
+          status.textContent = 'Installation… l’app va se fermer et rouvrir automatiquement.'
         } else if (res.result === 'opened') {
           status.hidden = false
           status.textContent = 'Le dmg s’ouvre : glissez l’app dans Applications, puis rouvrez-la.'

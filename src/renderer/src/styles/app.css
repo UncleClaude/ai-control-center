@@ -908,6 +908,11 @@ img {
 }
 
 /* Browser sign-in overlay (shown over the content card) */
+.login-overlay[hidden] {
+  /* A class with `display` would otherwise override the `hidden` attribute and keep the invisible
+     overlay on top of the stage, swallowing scroll and clicks (e.g. in settings). */
+  display: none;
+}
 .login-overlay {
   position: absolute;
   inset: 0 var(--gutter) var(--gutter) var(--gutter);

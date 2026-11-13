@@ -475,6 +475,7 @@ export class SettingsPanel {
               ib.querySelector('span')!.textContent = 'Téléchargement…'
               const res = await api.applyUpdate()
               if (res.error) ib.querySelector('span')!.textContent = `Échec : ${res.error}`
+              else if (res.result === 'quit') status.textContent = 'Installation… l’app va redémarrer.'
               else if (res.result === 'opened') status.textContent = 'Le dmg s’ouvre : glissez l’app dans Applications.'
               else if (res.result === 'page') status.textContent = 'Page de téléchargement ouverte dans le navigateur.'
             },

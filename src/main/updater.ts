@@ -1,7 +1,8 @@
-import { chmod, copyFile, rename, rm } from 'node:fs/promises'
+import { spawn } from 'node:child_process'
+import { chmod, copyFile, rename, rm, writeFile } from 'node:fs/promises'
 import { createWriteStream } from 'node:fs'
-import { join } from 'node:path'
 import { once } from 'node:events'
+import { join } from 'node:path'
 import { app, shell } from 'electron'
 
 /**
@@ -26,7 +27,7 @@ export interface UpdateInfo {
   asset?: UpdateAsset
 }
 
-export type ApplyResult = 'relaunch' | 'opened' | 'page'
+export type ApplyResult = 'relaunch' | 'quit' | 'opened' | 'page'
 
 /** Compares dotted versions; >0 when a is newer than b. Pre-release suffixes are ignored. */
 function compareVersions(a: string, b: string): number {
@@ -131,11 +132,69 @@ export async function applyUpdate(info: UpdateInfo, onProgress?: (fraction: numb
   if (process.platform === 'darwin' && info.asset) {
     const dest = join(app.getPath('downloads'), info.asset.name)
     await download(info.asset.url, dest, onProgress, info.asset.size)
+    // The running .app is three levels up from the executable (…/X.app/Contents/MacOS/exe).
+    const bundle = join(process.execPath, '..', '..', '..')
+    if (bundle.endsWith('.app')) {
+      const script = await writeMacInstaller(dest, bundle)
+      // Detached so it outlives this process: it waits for the app to quit, swaps the bundle,
+      // clears the quarantine flag, and reopens. The caller quits right after.
+      spawn('/bin/bash', [script], { detached: true, stdio: 'ignore' }).unref()
+      return 'quit'
+    }
+    // Not running from /Applications (e.g. straight from the dmg): just open the new dmg.
     await shell.openPath(dest)
     return 'opened'
   }
   await shell.openExternal(info.pageUrl)
   return 'page'
+}
+
+/** Writes the macOS install script and returns its path. */
+async function writeMacInstaller(dmg: string, bundle: string): Promise<string> {
+  const path = join(app.getPath('temp'), 'aicc-update.sh')
+  const sh = `#!/bin/bash
+# Installs an AI Control Center update: waits for the app to quit, swaps the .app into place,
+# removes the Gatekeeper quarantine flag, and reopens. Falls back to opening the dmg on failure.
+set -u
+DMG=${shq(dmg)}
+APP=${shq(bundle)}
+PARENT="$(dirname "$APP")"
+EXE="$APP/Contents/MacOS"
+
+# Wait (up to ~30s) for the running app to exit.
+for _ in $(seq 1 60); do
+  pgrep -f "$EXE/" >/dev/null 2>&1 || break
+  sleep 0.5
+done
+
+MNT="$(mktemp -d /tmp/aicc-mnt.XXXXXX)"
+if ! hdiutil attach -nobrowse -noautoopen -mountpoint "$MNT" "$DMG" >/dev/null 2>&1; then
+  open "$DMG"; exit 0
+fi
+SRC="$(/bin/ls -d "$MNT"/*.app 2>/dev/null | head -1)"
+if [ -z "$SRC" ]; then hdiutil detach "$MNT" >/dev/null 2>&1; open "$DMG"; exit 0; fi
+
+# Copy beside the old app first (tests write permission), then swap.
+STAGE="$PARENT/.aicc-update.app"
+rm -rf "$STAGE"
+if ! cp -R "$SRC" "$STAGE"; then
+  hdiutil detach "$MNT" >/dev/null 2>&1; open "$DMG"; exit 0
+fi
+hdiutil detach "$MNT" >/dev/null 2>&1 || true
+rm -rf "$APP"
+if ! mv "$STAGE" "$APP"; then rm -rf "$STAGE"; open "$DMG"; exit 0; fi
+
+xattr -dr com.apple.quarantine "$APP" >/dev/null 2>&1 || true
+rm -f "$DMG" >/dev/null 2>&1 || true
+open "$APP"
+`
+  await writeFile(path, sh, { mode: 0o755 })
+  return path
+}
+
+/** Single-quote a string for bash. */
+function shq(s: string): string {
+  return `'${s.replace(/'/g, `'\\''`)}'`
 }
 
 /** Restarts the app (Linux, after an AppImage swap). */

@@ -87,7 +87,7 @@ export interface UpdateInfoPublic {
   /** true on platforms where the app can fetch and apply it itself (Linux AppImage). */
   selfInstall: boolean
 }
-export type UpdateApply = 'relaunch' | 'opened' | 'page'
+export type UpdateApply = 'relaunch' | 'quit' | 'opened' | 'page'
 
 export type LoginState = 'watching' | 'searching' | 'none-found' | 'done' | 'timeout' | 'cancelled'
 export type LoginAction = 'finish' | 'cancel' | 'reopen'

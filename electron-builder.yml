@@ -1,7 +1,6 @@
 # electron-builder: AppImage (Linux) and dmg (macOS). The Arch package uses packaging/arch/PKGBUILD.
 appId: io.github.ai-control-center
 productName: AI Control Center
-executableName: ai-control-center
 copyright: AI Control Center contributors
 directories:
   output: dist
@@ -15,6 +14,9 @@ extraResources:
 asar: true
 
 linux:
+  # Linux keeps the lowercase executable / WM class (desktop entry, tray, blur rules rely on it);
+  # macOS uses productName so the bundle is "AI Control Center.app".
+  executableName: ai-control-center
   target:
     - AppImage
   category: Network

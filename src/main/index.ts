@@ -356,6 +356,8 @@ function registerIpc(): void {
     try {
       const result = await applyUpdate(pendingUpdate, (f) => shellView?.webContents.send(IPC.updateProgress, f))
       if (result === 'relaunch') relaunchForUpdate()
+      // macOS: the detached installer waits for us to exit, then swaps the app and reopens it.
+      else if (result === 'quit') setTimeout(() => quit(), 400)
       return { result }
     } catch (error) {
       return { error: error instanceof Error ? error.message : String(error) }
@@ -490,15 +492,43 @@ async function importFrom(entry: AiView, profile: BrowserProfile): Promise<numbe
   return imported
 }
 
-/** Scans browsers for a completed session for this AI and imports the first one found. */
-async function tryImport(entry: AiView): Promise<string | null> {
+/** Scans browsers for a completed session for this AI and imports the first one found.
+ * Background polling skips Chromium on macOS, where decrypting its cookies prompts for Keychain
+ * access every time; those are only read on an explicit "J'ai terminé". */
+async function tryImport(entry: AiView, interactive = false): Promise<string | null> {
   const host = aiHost(entry.ai)
   const names = sessionNames(entry.ai)
   for (const profile of detectBrowsers()) {
+    if (!interactive && process.platform === 'darwin' && profile.kind === 'chromium') continue
     if (!hasSession(profile, host, names)) continue
     if ((await importFrom(entry, profile)) > 0) return profile.label
   }
   return null
+}
+
+/** Per-browser read report for the overlay, so a failed sign-in says exactly what the app sees. */
+function diagnoseLogin(entry: AiView): string {
+  const host = aiHost(entry.ai)
+  const names = sessionNames(entry.ai)
+  const browsers = detectBrowsers()
+  if (browsers.length === 0) {
+    return process.platform === 'darwin'
+      ? 'Aucun navigateur détecté (Firefox, Chrome, Safari).'
+      : 'Aucun navigateur détecté.'
+  }
+  const parts = browsers.map((p) => {
+    try {
+      const cookies = readCookies(p, [host])
+      const session = cookies.some((c) => (names.length ? names.includes(c.name) : c.httpOnly && c.value.length >= 20))
+      return `${p.label} : ${cookies.length} cookie(s)${session ? ', session ✓' : ''}`
+    } catch (error) {
+      return `${p.label} : illisible (${(error instanceof Error ? error.message : String(error)).slice(0, 36)})`
+    }
+  })
+  const hint = process.platform === 'darwin' ? ' Chrome : autoriser le trousseau ; Safari : Accès complet au disque.' : ''
+  const report = `Vu pour ${host} → ${parts.join(' · ')}.${hint}`
+  console.info(`[login] diagnostic ${entry.ai.id} : ${report}`)
+  return report
 }
 
 function stopLoginWatch(aiId: string): void {
@@ -527,7 +557,7 @@ function startBrowserLogin(aiId: string): void {
         sendLogin(aiId, 'done', { browser: label })
       } else if (Date.now() > deadline) {
         stopLoginWatch(aiId)
-        sendLogin(aiId, 'timeout', { detail: loginDetail(detectBrowsers(), true) })
+        sendLogin(aiId, 'timeout', { detail: diagnoseLogin(entry) })
       }
     })()
   }, 2500)
@@ -547,15 +577,15 @@ async function handleLoginAction(aiId: string, action: 'finish' | 'cancel' | 're
     sendLogin(aiId, 'cancelled')
     return
   }
-  // finish: import now from whichever browser already has the session.
+  // finish: import now from whichever browser already has the session (Chromium/Keychain included).
   sendLogin(aiId, 'searching')
-  const label = await tryImport(entry)
+  const label = await tryImport(entry, true)
   if (label) {
     stopLoginWatch(aiId)
     views?.setLoginOverlay(null)
     sendLogin(aiId, 'done', { browser: label })
   } else {
-    sendLogin(aiId, 'none-found', { detail: loginDetail(detectBrowsers(), true) })
+    sendLogin(aiId, 'none-found', { detail: diagnoseLogin(entry) })
   }
 }
 

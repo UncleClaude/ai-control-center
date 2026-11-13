@@ -348,7 +348,7 @@ Email/password and Microsoft sign-in still work embedded, directly in the app; o
 At launch the app checks the project's GitHub releases for a newer version. If there is one, it asks whether to install it (**Mettre à jour** / **Plus tard**):
 
 - **Linux (AppImage):** it downloads the new AppImage, swaps it in place and restarts — fully automatic. This needs the app to run as an AppImage (so it knows its own path); a `makepkg` install updates through `pacman` instead.
-- **macOS:** the build is unsigned, so it cannot self-install silently. The app downloads the dmg and opens it for you to drag into Applications.
+- **macOS:** it downloads the dmg and runs a small installer script that waits for the app to quit, swaps the new `AI Control Center.app` into `/Applications`, removes the Gatekeeper quarantine flag (`xattr -dr com.apple.quarantine`) so it opens without a warning, and relaunches. If it can't write to `/Applications`, it falls back to opening the dmg for a manual drag.
 
 **Réglages → Mises à jour** has a manual **Vérifier maintenant** button and a toggle to turn the launch-time check off.
 
