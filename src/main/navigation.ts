@@ -86,19 +86,31 @@ export function openExternal(url: string): void {
  * - target=_blank links on the AI's own domain load in place; anything else goes to the browser.
  */
 export function guardNavigation(contents: WebContents, ai: AiConfig, isPopup = false, onBlockedAuth?: () => void): void {
+  // Divert a provider that blocks embedded sign-in to the real browser, before its page can load.
+  const divert = (): void => {
+    onBlockedAuth?.()
+    if (isPopup) contents.close()
+  }
   contents.on('will-navigate', (event) => {
     if (!event.isMainFrame) return
-    // A provider that blocks embedded sign-in: hand the whole flow to the real browser.
     if (isBlockedAuthUrl(event.url)) {
       event.preventDefault()
-      onBlockedAuth?.()
-      if (isPopup) contents.close()
+      divert()
       return
     }
     if (isInAppUrl(ai, event.url)) return
     event.preventDefault()
     openExternal(event.url)
     if (isPopup && contents.getURL() === 'about:blank') contents.close()
+  })
+
+  // OAuth usually reaches Google/Apple through a server redirect (302), which does NOT fire
+  // will-navigate — so the embedded page would load and show "browser not secure". Catch it here.
+  contents.on('will-redirect', (event) => {
+    if (isBlockedAuthUrl(event.url)) {
+      event.preventDefault()
+      divert()
+    }
   })
 
   contents.setWindowOpenHandler(({ url, disposition, features }) => {

@@ -1021,3 +1021,11 @@ img {
   opacity: 0.5;
   pointer-events: none;
 }
+
+.login-detail {
+  margin: 12px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-faint);
+  max-width: 400px;
+}

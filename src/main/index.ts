@@ -402,8 +402,23 @@ function sessionNames(ai: AiConfig): string[] {
   return SESSION_COOKIES[ai.adapter ?? ''] ?? []
 }
 
-function sendLogin(aiId: string, state: LoginState, extra?: { browser?: string; imported?: number }): void {
+function sendLogin(aiId: string, state: LoginState, extra?: { browser?: string; imported?: number; detail?: string }): void {
   shellView?.webContents.send(IPC.loginStatus, { aiId, state, ...extra } satisfies LoginStatus)
+}
+
+/** What the overlay shows about where the session can come from, and OS-specific gotchas. */
+function loginDetail(found: BrowserProfile[], failure: boolean): string {
+  if (found.length === 0) {
+    const where = process.platform === 'darwin' ? 'Chrome, Safari…' : 'Firefox, Chrome…'
+    return `Aucun navigateur détecté (${where}). Connecte-toi dans un navigateur installé normalement.`
+  }
+  const names = found.map((b) => b.label).join(', ')
+  if (!failure) return `Navigateur${found.length > 1 ? 's' : ''} détecté${found.length > 1 ? 's' : ''} : ${names}.`
+  // After a failed scan, the usual macOS causes are permission walls.
+  if (process.platform === 'darwin') {
+    return `Détecté : ${names}, mais pas de session lisible. Avec Chrome, autorise l’accès au trousseau quand macOS le demande. Avec Safari, donne à l’app l’Accès complet au disque (Réglages Système → Confidentialité et sécurité).`
+  }
+  return `Détecté : ${names}, mais aucune session pour ce site. Es-tu bien connecté dans ce navigateur ?`
 }
 
 /** Injects the AI-domain cookies from one browser profile and reloads; returns how many landed. */
@@ -468,7 +483,7 @@ function startBrowserLogin(aiId: string): void {
   showWindow(aiId)
   openExternal(entry.ai.url)
   views?.setLoginOverlay(aiId)
-  sendLogin(aiId, 'watching')
+  sendLogin(aiId, 'watching', { detail: loginDetail(detectBrowsers(), false) })
   stopLoginWatch(aiId)
   const deadline = Date.now() + 180_000
   const timer = setInterval(() => {
@@ -481,7 +496,7 @@ function startBrowserLogin(aiId: string): void {
         sendLogin(aiId, 'done', { browser: label })
       } else if (Date.now() > deadline) {
         stopLoginWatch(aiId)
-        sendLogin(aiId, 'timeout')
+        sendLogin(aiId, 'timeout', { detail: loginDetail(detectBrowsers(), true) })
       }
     })()
   }, 2500)
@@ -509,7 +524,7 @@ async function handleLoginAction(aiId: string, action: 'finish' | 'cancel' | 're
     views?.setLoginOverlay(null)
     sendLogin(aiId, 'done', { browser: label })
   } else {
-    sendLogin(aiId, 'none-found')
+    sendLogin(aiId, 'none-found', { detail: loginDetail(detectBrowsers(), true) })
   }
 }
 

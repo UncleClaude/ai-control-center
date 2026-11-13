@@ -81,6 +81,8 @@ export interface LoginStatus {
   /** On 'done': how the session was found. */
   browser?: string
   imported?: number
+  /** Extra line for the overlay: detected browsers while watching, or a hint on failure. */
+  detail?: string
 }
 
 export interface WebNotificationPayload {

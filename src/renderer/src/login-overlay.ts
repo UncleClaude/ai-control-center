@@ -113,6 +113,7 @@ export class LoginOverlay {
       cancelled: '',
     }
     card.append(el('h2', 'login-title', TITLE[s.state]), el('p', 'login-body', BODY[s.state]))
+    if (s.detail) card.append(el('p', 'login-detail', s.detail))
 
     if (s.state !== 'done') {
       const actions = el('div', 'login-actions')
