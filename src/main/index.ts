@@ -1,8 +1,9 @@
+import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { app, globalShortcut, ipcMain, nativeTheme, screen, shell, WebContentsView, type BaseWindow, type IpcMainEvent } from 'electron'
 import { z } from 'zod'
 import { IPC, type AiPublic, type GlassPreference, type LoginState, type LoginStatus, type Platform, type Settings, type ShellState, type SiteRole } from '../shared/protocol'
-import { detectBrowsers, hasSession, readCookies, type BrowserProfile } from './browser-cookies'
+import { detectBrowsers, hasSession, probe, readCookies, type BrowserProfile } from './browser-cookies'
 import { configFilePath, loadAiConfig, type AiConfig } from './config'
 import { detectGlass, type GlassInfo } from './glass'
 import { installMenu } from './menu'
@@ -506,27 +507,50 @@ async function tryImport(entry: AiView, interactive = false): Promise<string | n
   return null
 }
 
-/** Per-browser read report for the overlay, so a failed sign-in says exactly what the app sees. */
+/** Per-browser read report for the overlay, plus a full report written to a file for support. */
 function diagnoseLogin(entry: AiView): string {
   const host = aiHost(entry.ai)
   const names = sessionNames(entry.ai)
   const browsers = detectBrowsers()
-  if (browsers.length === 0) {
-    return process.platform === 'darwin'
-      ? 'Aucun navigateur détecté (Firefox, Chrome, Safari).'
-      : 'Aucun navigateur détecté.'
-  }
+  let sawEperm = false
   const parts = browsers.map((p) => {
     try {
       const cookies = readCookies(p, [host])
       const session = cookies.some((c) => (names.length ? names.includes(c.name) : c.httpOnly && c.value.length >= 20))
       return `${p.label} : ${cookies.length} cookie(s)${session ? ', session ✓' : ''}`
     } catch (error) {
-      return `${p.label} : illisible (${(error instanceof Error ? error.message : String(error)).slice(0, 36)})`
+      const msg = error instanceof Error ? error.message : String(error)
+      if (/EPERM|EACCES/.test(msg)) sawEperm = true
+      return `${p.label} : illisible (${msg.slice(0, 32)})`
     }
   })
-  const hint = process.platform === 'darwin' ? ' Chrome : autoriser le trousseau ; Safari : Accès complet au disque.' : ''
-  const report = `Vu pour ${host} → ${parts.join(' · ')}.${hint}`
+
+  // Full diagnostic to a file the user can open (Réglages → Fichiers → dossier de données).
+  let wrote = ''
+  try {
+    const file = join(app.getPath('userData'), 'login-diagnostic.txt')
+    const full = [
+      `AI Control Center ${app.getVersion()} — diagnostic connexion`,
+      `AI=${entry.ai.id} host=${host} session-cookies=${names.join(',') || '(heuristique)'}`,
+      '',
+      probe(),
+      '',
+      '--- lecture des cookies ---',
+      ...parts,
+    ].join('\n')
+    writeFileSync(file, full + '\n')
+    wrote = file
+  } catch (error) {
+    console.warn('[login] écriture du diagnostic impossible :', error)
+  }
+
+  const noFirefox = !browsers.some((p) => p.kind === 'firefox')
+  let hint = ''
+  if (noFirefox && process.platform === 'darwin') hint = ' Firefox non détecté : il est peut-être dans un dossier non standard.'
+  if (sawEperm && process.platform === 'darwin') {
+    hint += ' Accès refusé par macOS → donne à l’app l’Accès complet au disque (Réglages Système → Confidentialité et sécurité → Accès complet au disque), puis relance.'
+  }
+  const report = `Vu pour ${host} → ${parts.join(' · ') || 'aucun navigateur'}.${hint}${wrote ? ` (détails : login-diagnostic.txt)` : ''}`
   console.info(`[login] diagnostic ${entry.ai.id} : ${report}`)
   return report
 }

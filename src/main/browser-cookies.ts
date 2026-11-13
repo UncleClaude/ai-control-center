@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import { createHash, createDecipheriv, pbkdf2Sync } from 'node:crypto'
-import { copyFileSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs'
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
@@ -203,6 +203,37 @@ export function detectBrowsers(): BrowserProfile[] {
   return all.sort((a, b) => b.lastUsed - a.lastUsed)
 }
 
+/**
+ * A verbose report of where the app looked and what it found, for diagnosing failures (especially
+ * on macOS, where a path can be blocked rather than simply absent). Distinguishes ENOENT (not
+ * there) from EPERM/EACCES (there but access denied — typically needs Full Disk Access).
+ */
+export function probe(): string {
+  const lines: string[] = [`platform=${process.platform} arch=${process.arch} home=${home}`]
+  const stat = (path: string): string => {
+    try {
+      statSync(path)
+      return 'ok'
+    } catch (error) {
+      return (error as NodeJS.ErrnoException).code ?? 'err'
+    }
+  }
+  lines.push('--- Firefox-family bases ---')
+  for (const { label, base } of firefoxBases()) {
+    const dirs = firefoxProfileDirs(base)
+    const withCookies = dirs.filter((d) => existsSync(join(d, 'cookies.sqlite')))
+    lines.push(`${label}: ${base} [${stat(base)}] profiles=${dirs.length} withCookies=${withCookies.length}`)
+  }
+  // Also probe the standard Firefox base even if firefoxBases() skipped it (existsSync=false hides EPERM).
+  if (isMac) {
+    const ff = join(home, 'Library', 'Application Support', 'Firefox')
+    lines.push(`Firefox(std): ${ff} [${stat(ff)}] Profiles=[${stat(join(ff, 'Profiles'))}]`)
+  }
+  lines.push('--- detected profiles ---')
+  for (const p of detectBrowsers()) lines.push(`${p.label} (${p.kind}): ${p.cookiePath}`)
+  return lines.join('\n')
+}
+
 // ---------- Domain matching ----------
 
 function hostMatches(host: string, domains: readonly string[]): boolean {
@@ -222,8 +253,11 @@ function withCopiedDb<T>(src: string, read: (db: DatabaseSync) => T): T {
   const dir = mkdtempSync(join(tmpdir(), 'aicc-ck-'))
   try {
     const dst = join(dir, 'db.sqlite')
-    copyFileSync(src, dst)
-    for (const suffix of ['-wal', '-shm']) if (existsSync(src + suffix)) copyFileSync(src + suffix, dst + suffix)
+    // read+write rather than copyFileSync: on macOS copyfile() copies ACLs/flags and can fail with
+    // EPERM on cookie DBs that are themselves perfectly readable.
+    const copy = (from: string, to: string) => writeFileSync(to, readFileSync(from))
+    copy(src, dst)
+    for (const suffix of ['-wal', '-shm']) if (existsSync(src + suffix)) copy(src + suffix, dst + suffix)
     const db = new DatabaseSync(dst, { readOnly: false }) // read-only can refuse a WAL that needs a checkpoint
     try {
       return read(db)
