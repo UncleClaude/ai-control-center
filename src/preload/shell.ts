@@ -27,6 +27,7 @@ const api: ShellApi = {
   addAi: (spec) => ipcRenderer.invoke(IPC.addAi, spec),
   removeAi: (id) => ipcRenderer.invoke(IPC.removeAi, id),
   renameAi: (id, name) => ipcRenderer.invoke(IPC.renameAi, id, name),
+  setAiIcon: (id, dataUrl) => ipcRenderer.invoke(IPC.setAiIcon, id, dataUrl),
   onLoginStatus: (listener) => {
     const wrapped = (_e: unknown, status: Parameters<typeof listener>[0]) => listener(status)
     ipcRenderer.on(IPC.loginStatus, wrapped)

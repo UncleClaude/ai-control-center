@@ -17,6 +17,88 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: 
   return e
 }
 
+function loadImage(file: File): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = () => reject(new Error('lecture impossible'))
+    reader.onload = () => {
+      const img = new Image()
+      img.onload = () => resolve(img)
+      img.onerror = () => reject(new Error('image illisible'))
+      img.src = reader.result as string
+    }
+    reader.readAsDataURL(file)
+  })
+}
+
+/** Fraction of nearly-transparent pixels, to tell a logo-with-background from a cut-out glyph. */
+function transparentFraction(img: HTMLImageElement): number {
+  const n = 48
+  const c = el('canvas')
+  c.width = n
+  c.height = n
+  const ctx = c.getContext('2d', { willReadFrequently: true })
+  if (!ctx) return 0
+  ctx.drawImage(img, 0, 0, n, n)
+  let transparent = 0
+  try {
+    const d = ctx.getImageData(0, 0, n, n).data
+    for (let i = 3; i < d.length; i += 4) if (d[i] < 24) transparent++
+  } catch {
+    return 0
+  }
+  return transparent / (n * n)
+}
+
+function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
+  ctx.beginPath()
+  ctx.moveTo(x + r, y)
+  ctx.arcTo(x + w, y, x + w, y + h, r)
+  ctx.arcTo(x + w, y + h, x, y + h, r)
+  ctx.arcTo(x, y + h, x, y, r)
+  ctx.arcTo(x, y, x + w, y, r)
+  ctx.closePath()
+}
+
+/**
+ * Processes any uploaded image into the app's icon style: a rounded square "bubble" matching the
+ * built-in logos. An image that already has its own background fills the bubble (cover); a cut-out
+ * glyph is centred with padding on the AI's accent colour. Returns a 256×256 PNG data URL.
+ */
+async function bubbleIcon(file: File, accent: string): Promise<string> {
+  const img = await loadImage(file)
+  const size = 256
+  const canvas = el('canvas')
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('canvas indisponible')
+  ctx.imageSmoothingQuality = 'high'
+  // Same corner radius as the bundled SVGs (rx 16 on a 64 viewBox = 25 %).
+  roundRect(ctx, 0, 0, size, size, size * 0.25)
+  ctx.clip()
+
+  const w0 = img.naturalWidth || img.width
+  const h0 = img.naturalHeight || img.height
+  const cutOut = transparentFraction(img) > 0.06
+  if (cutOut) {
+    ctx.fillStyle = /^#[0-9a-fA-F]{6}$/.test(accent) ? accent : '#3a3f47'
+    ctx.fillRect(0, 0, size, size)
+    const box = size * 0.62
+    const scale = Math.min(box / w0, box / h0)
+    const w = w0 * scale
+    const h = h0 * scale
+    ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h)
+  } else {
+    // Cover: fill the bubble edge-to-edge, cropping the overflow.
+    const scale = Math.max(size / w0, size / h0)
+    const w = w0 * scale
+    const h = h0 * scale
+    ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h)
+  }
+  return canvas.toDataURL('image/png')
+}
+
 function button(cls: string, html: string, label: string, onClick: () => void): HTMLButtonElement {
   const b = el('button', cls)
   b.type = 'button'
@@ -324,7 +406,32 @@ export class SettingsPanel {
     zoom.append(minus, value, plus)
     const zoomWrap = el('span', 'field-control')
     zoomWrap.append(el('span', 'mini-label', 'Zoom'), zoom)
-    look.append(colorWrap, zoomWrap)
+    // Logo: pick an image, resized into a bubble matching the other icons.
+    const fileInput = el('input')
+    fileInput.type = 'file'
+    fileInput.accept = 'image/png,image/jpeg,image/webp,image/gif,image/svg+xml'
+    fileInput.hidden = true
+    const changeBtn = button('icon-btn', icons.image, 'Changer le logo', () => fileInput.click())
+    fileInput.addEventListener('change', async () => {
+      const f = fileInput.files?.[0]
+      if (!f) return
+      changeBtn.disabled = true
+      try {
+        const dataUrl = await bubbleIcon(f, prefs.accent)
+        await this.mutateAi(() => api.setAiIcon(ai.id, dataUrl), () => (changeBtn.disabled = false))
+      } catch {
+        changeBtn.disabled = false
+        changeBtn.classList.add('danger')
+        window.setTimeout(() => changeBtn.classList.remove('danger'), 2000)
+      }
+      fileInput.value = ''
+    })
+    const logoWrap = el('span', 'field-control')
+    logoWrap.append(el('span', 'mini-label', 'Logo'), changeBtn, fileInput)
+    if (prefs.iconCustom) {
+      logoWrap.append(button('icon-btn', icons.undo, 'Logo d’origine', () => void this.mutateAi(() => api.setAiIcon(ai.id, null))))
+    }
+    look.append(colorWrap, zoomWrap, logoWrap)
     card.append(look)
 
     // Actions

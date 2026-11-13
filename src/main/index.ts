@@ -1,10 +1,10 @@
-import { writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { app, globalShortcut, ipcMain, nativeTheme, screen, session, shell, WebContentsView, type BaseWindow, type IpcMainEvent } from 'electron'
 import { z } from 'zod'
 import { IPC, type AddAiSpec, type AiPublic, type GlassPreference, type LoginState, type LoginStatus, type Platform, type Settings, type ShellState, type SiteRole } from '../shared/protocol'
 import { detectBrowsers, hasSession, macNeedsFullDiskAccess, probe, readCookies, type BrowserProfile } from './browser-cookies'
-import { configFilePath, isBuiltInId, loadAiConfig, loadRawConfig, materializeAi, saveRawConfig, type AiConfig, type RawAi } from './config'
+import { builtInIconName, configFilePath, customIconDir, isBuiltInId, loadAiConfig, loadRawConfig, materializeAi, saveRawConfig, type AiConfig, type RawAi } from './config'
 import { detectGlass, type GlassInfo } from './glass'
 import { installMenu } from './menu'
 import { openExternal } from './navigation'
@@ -205,6 +205,56 @@ function renameAi(id: string, name: string): { error?: string } {
   return {}
 }
 
+/** Replaces an AI's logo with a bubble-processed PNG (the renderer already resized it), or resets it. */
+function setAiIcon(id: string, dataUrl: string | null): { error?: string } {
+  const raw = loadRawConfig()
+  const entry = raw.find((a) => a.id === id)
+  if (!entry) return { error: 'introuvable' }
+  const file = join(customIconDir(), `${id}.png`)
+  if (dataUrl) {
+    const m = /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/.exec(dataUrl.trim())
+    if (!m) return { error: 'image invalide' }
+    const buf = Buffer.from(m[1], 'base64')
+    if (buf.length > 2_000_000) return { error: 'image trop lourde (max 2 Mo)' }
+    try {
+      mkdirSync(customIconDir(), { recursive: true })
+      writeFileSync(file, buf)
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) }
+    }
+    entry.icon = `custom-icons/${id}.png`
+  } else {
+    // Reset: built-in AIs go back to their bundled icon, custom ones to the monogram.
+    const bundled = builtInIconName(id)
+    if (bundled) entry.icon = bundled
+    else delete entry.icon
+    try {
+      if (existsSync(file)) rmSync(file)
+    } catch {
+      /* best effort */
+    }
+  }
+  try {
+    saveRawConfig(raw)
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : String(error) }
+  }
+  const live = views?.views.get(id)?.ai
+  if (live) {
+    // Chromium caches the data URL by content, so the file's new bytes are picked up on reload.
+    const fresh = materializeAi(entry)
+    live.icon = fresh.icon
+    live.iconDataUrl = fresh.iconDataUrl
+    live.iconPng = fresh.iconPng
+    hub?.setIcon(live)
+  }
+  installMenu(visibleAis(), handlers)
+  tray?.refresh()
+  pushState()
+  console.info(`[config] logo ${dataUrl ? 'modifié' : 'réinitialisé'} : ${id}`)
+  return {}
+}
+
 // ---------- Shell state ----------
 
 function shellState(): ShellState {
@@ -389,6 +439,7 @@ function registerIpc(): void {
               zoom: prefs.zoom,
               builtIn: isBuiltInId(ai.id),
               url: ai.url,
+              iconCustom: (ai.icon ?? '').startsWith('custom-icons/'),
             },
           ]
         }),
@@ -493,6 +544,12 @@ function registerIpc(): void {
   ipcMain.handle(IPC.renameAi, (e, id, name) => {
     if (!fromShell(e)) return null
     const { error } = renameAi(Id.parse(id), z.string().max(80).parse(name))
+    return { settings: settings(), error }
+  })
+  const IconData = z.string().max(3_500_000).nullable()
+  ipcMain.handle(IPC.setAiIcon, (e, id, dataUrl) => {
+    if (!fromShell(e)) return null
+    const { error } = setAiIcon(Id.parse(id), IconData.parse(dataUrl))
     return { settings: settings(), error }
   })
 

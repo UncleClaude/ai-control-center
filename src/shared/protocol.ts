@@ -73,6 +73,8 @@ export const IPC = {
   removeAi: 'shell:remove-ai',
   /** shell → main: rename an AI. */
   renameAi: 'shell:rename-ai',
+  /** shell → main: set (PNG data URL) or reset (null) an AI's logo. */
+  setAiIcon: 'shell:set-ai-icon',
   /** main → shell: a browser sign-in is in progress / finished for an AI. */
   loginStatus: 'shell:login-status',
   /** shell → main: the overlay's finish / cancel / reopen buttons. */
@@ -132,6 +134,8 @@ export interface AiSettings {
   builtIn: boolean
   /** The service URL, shown on custom entries. */
   url: string
+  /** The logo was replaced by the user (so a reset-to-default button can show). */
+  iconCustom: boolean
 }
 
 /** Create a new AI entry: a fresh instance of an existing AI (own login), or a custom service. */
@@ -228,6 +232,8 @@ export interface ShellApi {
   removeAi(id: string): Promise<MutateAiResult>
   /** Rename an AI. */
   renameAi(id: string, name: string): Promise<MutateAiResult>
+  /** Replace an AI's logo with a processed PNG (data URL), or reset it with null. */
+  setAiIcon(id: string, dataUrl: string | null): Promise<MutateAiResult>
   /** Browser sign-in progress, pushed from main. */
   onLoginStatus(listener: (status: LoginStatus) => void): () => void
   /** The login overlay's finish / cancel / reopen buttons. */

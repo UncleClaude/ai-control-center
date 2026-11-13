@@ -41,6 +41,16 @@ export function isBuiltInId(id: string): boolean {
   return BUILTIN_IDS.has(id)
 }
 
+/** The bundled icon reference for a built-in AI (used when resetting a custom logo). */
+export function builtInIconName(id: string): string | undefined {
+  return BUILTIN_BY_ID.get(id)?.icon
+}
+
+/** Folder holding user-supplied logos, next to ais.json. */
+export function customIconDir(): string {
+  return join(dirname(configFilePath()), 'custom-icons')
+}
+
 export function configFilePath(): string {
   return join(app.getPath('userData'), 'ais.json')
 }

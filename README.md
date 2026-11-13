@@ -304,6 +304,7 @@ Behaviour:
   - **Vider le cache** reloads the page without cache and keeps you signed in;
   - **Se déconnecter** wipes the site's cookies and data. It needs two clicks to confirm;
   - click an AI's name to **rename** it;
+  - **Logo** replaces the icon with any image you pick: it is resized into the same rounded "bubble" as the other logos (a cut-out glyph is centred on the AI's colour; an image with its own background fills the bubble), so every icon stays consistent. ↺ restores the original;
   - **Supprimer** removes an AI you added (two clicks to confirm); the three built-in AIs can only be hidden.
 - **Add an AI** (bottom of the AI list, no restart):
   - **Nouvelle instance** — pick an existing AI, give it a name, and get a second copy with its **own login**: a Claude for work and a Claude for personal, two ChatGPT accounts, and so on;

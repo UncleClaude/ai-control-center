@@ -74,6 +74,11 @@ export class NotificationHub extends EventEmitter<{ badges: [Record<string, numb
   addAi(ai: AiConfig): void {
     if (this.tracks.has(ai.id)) return
     this.tracks.set(ai.id, { pending: [], timer: null, lastAt: 0, lastKey: '', lastKind: null, armed: true })
+    this.setIcon(ai)
+  }
+
+  /** Refreshes the native notification icon after the AI's logo changed. */
+  setIcon(ai: AiConfig): void {
     const img = ai.iconPng ? nativeImage.createFromPath(ai.iconPng) : null
     this.icons.set(ai.id, img && !img.isEmpty() ? img : this.fallbackIcon)
   }
