@@ -65,22 +65,22 @@ export const IPC = {
   openPath: 'shell:open-path',
   testNotification: 'shell:test-notification',
   aiAction: 'shell:ai-action',
-  listBrowsers: 'shell:list-browsers',
-  browserLogin: 'shell:browser-login',
-  importCookies: 'shell:import-cookies',
+  /** main → shell: a browser sign-in is in progress / finished for an AI. */
+  loginStatus: 'shell:login-status',
+  /** shell → main: the overlay's finish / cancel / reopen buttons. */
+  loginAction: 'shell:login-action',
 } as const
 
-/** A browser profile the app can import cookies from (paths stay in main). */
-export interface BrowserInfo {
-  id: string
-  kind: 'firefox' | 'chromium' | 'safari'
-  label: string
-}
+export type LoginState = 'watching' | 'searching' | 'none-found' | 'done' | 'timeout' | 'cancelled'
+export type LoginAction = 'finish' | 'cancel' | 'reopen'
 
-export interface ImportResult {
-  imported: number
-  /** Present when nothing could be imported; a short reason to show the user. */
-  error?: string
+/** Progress of a browser sign-in hand-off, pushed to the shell to drive the overlay. */
+export interface LoginStatus {
+  aiId: string
+  state: LoginState
+  /** On 'done': how the session was found. */
+  browser?: string
+  imported?: number
 }
 
 export interface WebNotificationPayload {
@@ -176,12 +176,10 @@ export interface ShellApi {
   openPath(which: 'config' | 'skins' | 'data'): void
   testNotification(aiId: string): void
   aiAction(aiId: string, action: AiAction): Promise<boolean>
-  /** Browser profiles the app can import cookies from. */
-  listBrowsers(): Promise<BrowserInfo[]>
-  /** Opens the AI's sign-in page in the user's default browser. */
-  browserLogin(aiId: string): void
-  /** Imports the AI's session cookies from a browser profile, then reloads the view. */
-  importCookies(aiId: string, browserId: string): Promise<ImportResult>
+  /** Browser sign-in progress, pushed from main. */
+  onLoginStatus(listener: (status: LoginStatus) => void): () => void
+  /** The login overlay's finish / cancel / reopen buttons. */
+  loginAction(aiId: string, action: LoginAction): void
   select(id: string): void
   nav(action: NavAction): void
   setContentRect(rect: Rect): void

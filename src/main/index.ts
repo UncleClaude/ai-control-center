@@ -1,8 +1,8 @@
 import { join } from 'node:path'
 import { app, globalShortcut, ipcMain, nativeTheme, screen, shell, WebContentsView, type BaseWindow, type IpcMainEvent } from 'electron'
 import { z } from 'zod'
-import { IPC, type AiPublic, type GlassPreference, type ImportResult, type Platform, type Settings, type ShellState, type SiteRole } from '../shared/protocol'
-import { detectBrowsers, readCookies, type BrowserProfile } from './browser-cookies'
+import { IPC, type AiPublic, type GlassPreference, type LoginState, type LoginStatus, type Platform, type Settings, type ShellState, type SiteRole } from '../shared/protocol'
+import { detectBrowsers, hasSession, readCookies, type BrowserProfile } from './browser-cookies'
 import { configFilePath, loadAiConfig, type AiConfig } from './config'
 import { detectGlass, type GlassInfo } from './glass'
 import { installMenu } from './menu'
@@ -15,7 +15,7 @@ import { SkinManager, userSkinDir } from './skins'
 import { applyGlobalShortcut, applyLaunchAtLogin, launchUnsupported, startsHidden } from './startup'
 import { store } from './store'
 import { AppTray } from './tray'
-import { ViewManager } from './views'
+import { ViewManager, type AiView } from './views'
 import { createMainWindow, siteBackground } from './window'
 
 // Stable, space-free profile directory: ~/.config/ai-control-center, ~/Library/Application Support/ai-control-center
@@ -325,72 +325,10 @@ function registerIpc(): void {
     pushState()
     return settings()
   })
-  // ---- Browser login (import the AI's session cookies from the user's own browser) ----
-  // Cached so the ids returned by listBrowsers match the ones importCookies receives.
-  let browserCache: BrowserProfile[] = []
-  ipcMain.handle(IPC.listBrowsers, (e) => {
-    if (!fromShell(e)) return []
-    browserCache = detectBrowsers()
-    return browserCache.map((b) => ({ id: b.id, kind: b.kind, label: b.label }))
-  })
-  ipcMain.on(IPC.browserLogin, (e, id) => {
-    const ai = views?.views.get(Id.parse(id))?.ai
-    if (fromShell(e) && ai) openExternal(ai.url)
-  })
-  /** The AI's own domains (not the shared Google/Apple identity hosts): the session cookie lives here. */
-  const aiDomains = (ai: AiConfig): string[] => {
-    const host = (() => {
-      try {
-        return new URL(ai.url).hostname.replace(/^www\./, '')
-      } catch {
-        return ''
-      }
-    })()
-    return [...new Set([host, ...ai.allowedDomains].filter(Boolean))]
-  }
-  ipcMain.handle(IPC.importCookies, async (e, rawAi, rawBrowser): Promise<ImportResult> => {
-    if (!fromShell(e)) return { imported: 0, error: 'refusé' }
-    const entry = views?.views.get(Id.parse(rawAi))
-    const profile = browserCache.find((b) => b.id === z.string().max(400).parse(rawBrowser))
-    if (!entry) return { imported: 0, error: 'IA inconnue' }
-    if (!profile) return { imported: 0, error: 'navigateur introuvable (relancez la détection)' }
-    let cookies
-    try {
-      cookies = readCookies(profile, aiDomains(entry.ai))
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error)
-      console.error(`[import] ${entry.ai.id} ← ${profile.label} : ${msg}`)
-      return { imported: 0, error: msg }
-    }
-    const ses = entry.view.webContents.session
-    let imported = 0
-    for (const c of cookies) {
-      try {
-        await ses.cookies.set({
-          url: c.url,
-          name: c.name,
-          value: c.value,
-          domain: c.domain,
-          path: c.path,
-          secure: c.secure,
-          httpOnly: c.httpOnly,
-          expirationDate: c.expirationDate,
-          sameSite: c.sameSite,
-        })
-        imported++
-      } catch {
-        // A single malformed cookie (e.g. SameSite=None without Secure) must not abort the import.
-      }
-    }
-    console.info(`[import] ${entry.ai.id} ← ${profile.label} : ${imported}/${cookies.length} cookies`)
-    if (imported > 0) {
-      entry.loaded = true
-      await ses.cookies.flushStore()
-      entry.view.webContents.loadURL(entry.ai.url)
-    }
-    return imported > 0
-      ? { imported }
-      : { imported: 0, error: cookies.length ? 'cookies refusés par la session' : `aucun cookie pour ce site dans ${profile.label} (connecté dans ce navigateur ?)` }
+  ipcMain.on(IPC.loginAction, (e, id, action) => {
+    if (!fromShell(e)) return
+    const act = z.enum(['finish', 'cancel', 'reopen']).parse(action)
+    void handleLoginAction(Id.parse(id), act)
   })
 
   ipcMain.handle(IPC.aiAction, async (e, id, action) => {
@@ -431,6 +369,148 @@ function registerIpc(): void {
     }
     e.returnValue = role
   })
+}
+
+// ---------- Browser sign-in hand-off ----------
+// When the user picks a provider that blocks embedded login (Google, Apple), the flow opens in the
+// real browser; the app then watches that browser for the AI's session cookie and imports it.
+
+// Known session-cookie names, so completion is detected the instant the user is signed in.
+const SESSION_COOKIES: Record<string, string[]> = {
+  claude: ['sessionKey'],
+  chatgpt: ['__Secure-next-auth.session-token', '__Secure-next-auth.session-token.0'],
+}
+
+interface LoginWatch {
+  timer: NodeJS.Timeout
+  deadline: number
+}
+const loginWatches = new Map<string, LoginWatch>()
+
+function aiHost(ai: AiConfig): string {
+  try {
+    return new URL(ai.url).hostname.replace(/^www\./, '')
+  } catch {
+    return ''
+  }
+}
+/** The AI's own domains (never the shared Google/Apple identity hosts): the session cookie lives here. */
+function aiDomains(ai: AiConfig): string[] {
+  return [...new Set([aiHost(ai), ...ai.allowedDomains].filter(Boolean))]
+}
+function sessionNames(ai: AiConfig): string[] {
+  return SESSION_COOKIES[ai.adapter ?? ''] ?? []
+}
+
+function sendLogin(aiId: string, state: LoginState, extra?: { browser?: string; imported?: number }): void {
+  shellView?.webContents.send(IPC.loginStatus, { aiId, state, ...extra } satisfies LoginStatus)
+}
+
+/** Injects the AI-domain cookies from one browser profile and reloads; returns how many landed. */
+async function importFrom(entry: AiView, profile: BrowserProfile): Promise<number> {
+  let cookies
+  try {
+    cookies = readCookies(profile, aiDomains(entry.ai))
+  } catch (error) {
+    console.error(`[login] ${entry.ai.id} ← ${profile.label} : ${error instanceof Error ? error.message : error}`)
+    return 0
+  }
+  const ses = entry.view.webContents.session
+  let imported = 0
+  for (const c of cookies) {
+    try {
+      await ses.cookies.set({
+        url: c.url,
+        name: c.name,
+        value: c.value,
+        domain: c.domain,
+        path: c.path,
+        secure: c.secure,
+        httpOnly: c.httpOnly,
+        expirationDate: c.expirationDate,
+        sameSite: c.sameSite,
+      })
+      imported++
+    } catch {
+      // One malformed cookie (e.g. SameSite=None without Secure) must not abort the import.
+    }
+  }
+  if (imported > 0) {
+    entry.loaded = true
+    await ses.cookies.flushStore()
+    entry.view.webContents.loadURL(entry.ai.url)
+    console.info(`[login] ${entry.ai.id} ← ${profile.label} : ${imported}/${cookies.length} cookies importés`)
+  }
+  return imported
+}
+
+/** Scans browsers for a completed session for this AI and imports the first one found. */
+async function tryImport(entry: AiView): Promise<string | null> {
+  const host = aiHost(entry.ai)
+  const names = sessionNames(entry.ai)
+  for (const profile of detectBrowsers()) {
+    if (!hasSession(profile, host, names)) continue
+    if ((await importFrom(entry, profile)) > 0) return profile.label
+  }
+  return null
+}
+
+function stopLoginWatch(aiId: string): void {
+  const w = loginWatches.get(aiId)
+  if (w) clearInterval(w.timer)
+  loginWatches.delete(aiId)
+}
+
+/** A blocked provider was reached: open the sign-in in the browser and poll for the session. */
+function startBrowserLogin(aiId: string): void {
+  const entry = views?.views.get(aiId)
+  if (!entry) return
+  showWindow(aiId)
+  openExternal(entry.ai.url)
+  views?.setLoginOverlay(aiId)
+  sendLogin(aiId, 'watching')
+  stopLoginWatch(aiId)
+  const deadline = Date.now() + 180_000
+  const timer = setInterval(() => {
+    void (async () => {
+      if (!loginWatches.has(aiId)) return
+      const label = await tryImport(entry)
+      if (label) {
+        stopLoginWatch(aiId)
+        views?.setLoginOverlay(null)
+        sendLogin(aiId, 'done', { browser: label })
+      } else if (Date.now() > deadline) {
+        stopLoginWatch(aiId)
+        sendLogin(aiId, 'timeout')
+      }
+    })()
+  }, 2500)
+  loginWatches.set(aiId, { timer, deadline })
+}
+
+async function handleLoginAction(aiId: string, action: 'finish' | 'cancel' | 'reopen'): Promise<void> {
+  const entry = views?.views.get(aiId)
+  if (!entry) return
+  if (action === 'reopen') {
+    openExternal(entry.ai.url)
+    return
+  }
+  if (action === 'cancel') {
+    stopLoginWatch(aiId)
+    views?.setLoginOverlay(null)
+    sendLogin(aiId, 'cancelled')
+    return
+  }
+  // finish: import now from whichever browser already has the session.
+  sendLogin(aiId, 'searching')
+  const label = await tryImport(entry)
+  if (label) {
+    stopLoginWatch(aiId)
+    views?.setLoginOverlay(null)
+    sendLogin(aiId, 'done', { browser: label })
+  } else {
+    sendLogin(aiId, 'none-found')
+  }
 }
 
 // ---------- Shortcuts ----------
@@ -502,6 +582,7 @@ function createWindow(): void {
   views = new ViewManager(window, ais, siteBackground(), {
     enabled: (id) => store.aiPrefs(id).enabled,
     zoom: (id) => store.aiPrefs(id).zoom,
+    onBlockedAuth: (id) => startBrowserLogin(id),
   })
 
   installMenu(visibleAis(), handlers)
@@ -512,6 +593,11 @@ function createWindow(): void {
     markSeen()
     const id = views?.activeId
     if (id && id !== store.state.lastAiId) store.update((s) => (s.lastAiId = id))
+  })
+  // Switching AI (or the user dismissing it) ends an in-progress browser sign-in.
+  views.on('login-cancelled', (aiId) => {
+    stopLoginWatch(aiId)
+    sendLogin(aiId, 'cancelled')
   })
 
   const layoutShell = () => {

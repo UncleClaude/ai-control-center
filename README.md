@@ -300,7 +300,6 @@ Behaviour:
   - notifications, sound, app-coloured skin;
   - custom colour: replaces the `ais.json` colour in the rail, the window tint and the site skin; ↺ restores the original;
   - page zoom, 50 to 200 %;
-  - **Se connecter via le navigateur** / **Importer ma session**: the browser-login flow, see below;
   - **Tester** shows a sample notification;
   - **Vider le cache** reloads the page without cache and keeps you signed in;
   - **Se déconnecter** wipes the site's cookies and data. It needs two clicks to confirm.
@@ -320,26 +319,29 @@ Behaviour:
 
 The chevron at the bottom of the rail shows the AI names. The app remembers the window size, its maximised state and the last AI. Under Wayland the compositor places windows, so the position is not restored.
 
-### Signing in with your browser
+### Signing in with your browser (automatic)
 
-Google and some providers block sign-in from any embedded browser engine ("this browser may not be secure"), and that block is especially stubborn on macOS. These sites are also not OAuth providers for third-party apps, so there is no real "log in and get redirected back to the app" flow.
+Google and Apple block sign-in from any embedded browser engine ("this browser may not be secure"), worst on macOS. These sites are also not OAuth providers for third-party apps, so there is no real "log in and get redirected straight back to the app" flow.
 
-What the app does instead, per AI, in **Réglages → Intelligences artificielles**:
+So the app handles it automatically, like a standard app does, without any setting to toggle:
 
-1. **Se connecter via le navigateur** opens that AI's sign-in page in your **default system browser**, where sign-in always works.
-2. Once you are signed in there, pick your browser under **Importer depuis** and click **Importer ma session**. The app reads that site's session cookies from your browser and injects them into the AI's isolated storage, then reloads the page — now you are signed in inside the app.
+1. In the app, on ChatGPT/Claude/…, you click **Continue with Google** (or Apple) as usual.
+2. The app catches that — these providers block the embedded engine — and **opens the sign-in in your default system browser**, showing an overlay: *"Sign in in your browser…"*.
+3. You sign in there (Google works in a real browser). The app **watches your browser and, the moment it sees that site's session, imports it automatically**, reloads, and you are signed in inside the app. No button to press.
 
-It only ever reads cookies for that AI's own domains (for example `claude.ai`, `chatgpt.com`, or `muse.ai` and the Meta domains), never your Google or Apple account, and nothing leaves your machine.
+The overlay also offers **J'ai terminé** (import now), **Rouvrir le navigateur**, and **Annuler** in case the automatic detection lags.
 
-Supported browsers, auto-detected:
+It only ever reads cookies for that AI's own domains (for example `claude.ai`, `chatgpt.com`, or `muse.ai` and the Meta domains), never your Google or Apple account, and nothing leaves your machine. For Claude and ChatGPT it waits for the actual session cookie, so anti-bot cookies set while signed out never trigger a false "signed in".
+
+Browsers are auto-detected:
 
 | Browser | Platforms | Notes |
 |---|---|---|
-| Firefox / LibreWolf | Linux, macOS, Windows | native, Flatpak and Snap installs |
+| Firefox / LibreWolf | Linux, macOS, Windows | native, Flatpak, Snap, and `~/.config/mozilla` layouts |
 | Safari | macOS | reads `Cookies.binarycookies` |
 | Chrome / Chromium / Brave / Edge / Vivaldi | Linux, macOS | best effort: cookies are encrypted, so this needs the system keyring (GNOME Keyring / KWallet on Linux, the Keychain on macOS, which prompts once) |
 
-If an import finds nothing, make sure you are actually signed in to that site **in the browser you picked**, then try again. The regular embedded sign-in (including the Google/Firefox workaround) still works too; browser login is the more reliable path when it does not.
+Email/password and Microsoft sign-in still work embedded, directly in the app; only the providers that block embedded login are handed off to the browser.
 
 ---
 

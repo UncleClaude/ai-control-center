@@ -24,9 +24,12 @@ const api: ShellApi = {
   openPath: (which) => ipcRenderer.send(IPC.openPath, which),
   testNotification: (aiId) => ipcRenderer.send(IPC.testNotification, aiId),
   aiAction: (aiId, action) => ipcRenderer.invoke(IPC.aiAction, aiId, action),
-  listBrowsers: () => ipcRenderer.invoke(IPC.listBrowsers),
-  browserLogin: (aiId) => ipcRenderer.send(IPC.browserLogin, aiId),
-  importCookies: (aiId, browserId) => ipcRenderer.invoke(IPC.importCookies, aiId, browserId),
+  onLoginStatus: (listener) => {
+    const wrapped = (_e: unknown, status: Parameters<typeof listener>[0]) => listener(status)
+    ipcRenderer.on(IPC.loginStatus, wrapped)
+    return () => ipcRenderer.off(IPC.loginStatus, wrapped)
+  },
+  loginAction: (aiId, action) => ipcRenderer.send(IPC.loginAction, aiId, action),
   select: (id) => ipcRenderer.send(IPC.select, id),
   nav: (action) => ipcRenderer.send(IPC.nav, action),
   setContentRect: (rect) => ipcRenderer.send(IPC.layout, rect),

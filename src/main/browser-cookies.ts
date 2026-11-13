@@ -399,3 +399,35 @@ export function readCookies(profile: BrowserProfile, domains: readonly string[])
   if (profile.kind === 'chromium') return readChromium(profile, domains)
   return readSafari(profile, domains)
 }
+
+// Anti-bot / CDN / consent cookies are long and http-only but set even when signed out; the
+// fallback heuristic must not mistake them for a session.
+const NON_SESSION = new Set([
+  'cf_clearance',
+  '__cf_bm',
+  '__cf_waf',
+  '_cfuvid',
+  'cf_chl_rc_ni',
+  'g_state',
+  'datadome',
+  '_dd_s',
+  'OptanonConsent',
+  'AWSALB',
+  'AWSALBCORS',
+])
+
+/**
+ * True when the browser holds a logged-in session for `host`. When the AI's session cookie name is
+ * known (Claude, ChatGPT), require exactly that — otherwise anti-bot cookies that exist while
+ * signed out would trigger a false positive. For unknown sites, fall back to a long http-only
+ * cookie that is not a known anti-bot cookie. Reads nothing beyond `host`.
+ */
+export function hasSession(profile: BrowserProfile, host: string, sessionNames: readonly string[]): boolean {
+  try {
+    const cookies = readCookies(profile, [host])
+    if (sessionNames.length) return cookies.some((c) => sessionNames.includes(c.name) && c.value.length > 0)
+    return cookies.some((c) => c.httpOnly && c.value.length >= 20 && !NON_SESSION.has(c.name))
+  } catch {
+    return false
+  }
+}

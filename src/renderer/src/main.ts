@@ -1,5 +1,6 @@
 import type { ShellState } from '../../shared/protocol'
 import { icons } from './icons'
+import { LoginOverlay } from './login-overlay'
 import { SettingsPanel } from './settings'
 import { playChime } from './sound'
 import './styles/tokens.css'
@@ -40,6 +41,17 @@ const settings = new SettingsPanel(
 )
 settingsBtn.addEventListener('click', () => settings.toggle())
 api.onOpenSettings(() => void settings.show())
+
+// Browser sign-in overlay (shown over the card while a Google/Apple login runs in the real browser).
+// Created for its side effect: it subscribes to login-status updates and renders itself.
+new LoginOverlay(
+  $('login-overlay'),
+  (id) => state?.ais.find((a) => a.id === id),
+  (shown) => {
+    if (shown) settings.hide()
+    root.classList.toggle('login-open', shown)
+  },
+)
 
 backBtn.addEventListener('click', () => api.nav('back'))
 forwardBtn.addEventListener('click', () => api.nav('forward'))

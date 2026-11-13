@@ -23,6 +23,18 @@ export const AUTH_DOMAINS = [
   'auth.meta.com',
 ]
 
+/**
+ * Identity providers that refuse an embedded browser engine ("this browser may not be secure"),
+ * so their sign-in must happen in the real browser. Navigating here is diverted to the system
+ * browser and the session is then imported. Microsoft is left embedded (it accepts webviews).
+ */
+export const EMBEDDED_BLOCKED_HOSTS = [
+  'accounts.google.com',
+  'accounts.youtube.com',
+  'appleid.apple.com',
+  'idmsa.apple.com',
+]
+
 export function hostMatches(host: string, domains: readonly string[]): boolean {
   const h = host.toLowerCase()
   return domains.some((d) => h === d || h.endsWith(`.${d}`))
@@ -46,6 +58,12 @@ export function isAuthUrl(url: string): boolean {
   return !!u && u.protocol === 'https:' && hostMatches(u.hostname, AUTH_DOMAINS)
 }
 
+/** A provider that blocks embedded sign-in: open it in the real browser instead. */
+export function isBlockedAuthUrl(url: string): boolean {
+  const u = parse(url)
+  return !!u && u.protocol === 'https:' && hostMatches(u.hostname, EMBEDDED_BLOCKED_HOSTS)
+}
+
 export function isInAppUrl(ai: AiConfig, url: string): boolean {
   return isAiUrl(ai, url) || isAuthUrl(url)
 }
@@ -67,9 +85,17 @@ export function openExternal(url: string): void {
  *   (same session, keeps window.opener so the OAuth callback can reach the page).
  * - target=_blank links on the AI's own domain load in place; anything else goes to the browser.
  */
-export function guardNavigation(contents: WebContents, ai: AiConfig, isPopup = false): void {
+export function guardNavigation(contents: WebContents, ai: AiConfig, isPopup = false, onBlockedAuth?: () => void): void {
   contents.on('will-navigate', (event) => {
-    if (!event.isMainFrame || isInAppUrl(ai, event.url)) return
+    if (!event.isMainFrame) return
+    // A provider that blocks embedded sign-in: hand the whole flow to the real browser.
+    if (isBlockedAuthUrl(event.url)) {
+      event.preventDefault()
+      onBlockedAuth?.()
+      if (isPopup) contents.close()
+      return
+    }
+    if (isInAppUrl(ai, event.url)) return
     event.preventDefault()
     openExternal(event.url)
     if (isPopup && contents.getURL() === 'about:blank') contents.close()
@@ -78,6 +104,11 @@ export function guardNavigation(contents: WebContents, ai: AiConfig, isPopup = f
   contents.setWindowOpenHandler(({ url, disposition, features }) => {
     const blank = url === '' || url === 'about:blank'
     const popupWanted = disposition === 'new-window' || features.length > 0
+    // "Continue with Google/Apple" often opens a popup straight to the provider: divert it.
+    if (isBlockedAuthUrl(url)) {
+      onBlockedAuth?.()
+      return { action: 'deny' }
+    }
     if (blank || isAuthUrl(url) || (isAiUrl(ai, url) && popupWanted)) {
       return {
         action: 'allow',
@@ -104,6 +135,6 @@ export function guardNavigation(contents: WebContents, ai: AiConfig, isPopup = f
   })
 
   contents.on('did-create-window', (win) => {
-    guardNavigation(win.webContents, ai, true)
+    guardNavigation(win.webContents, ai, true, onBlockedAuth)
   })
 }

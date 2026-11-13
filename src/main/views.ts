@@ -13,6 +13,8 @@ export interface ViewPrefs {
   /** Hidden AIs are not loaded. */
   enabled(aiId: string): boolean
   zoom(aiId: string): number
+  /** A sign-in provider that blocks embedded login was reached: hand off to the browser. */
+  onBlockedAuth(aiId: string): void
 }
 
 export interface AiView {
@@ -25,11 +27,13 @@ export interface AiView {
  * One WebContentsView per AI, all kept alive. Switching only toggles visibility, so a page is
  * never reloaded and a running generation is never interrupted.
  */
-export class ViewManager extends EventEmitter<{ changed: [] }> {
+export class ViewManager extends EventEmitter<{ changed: []; 'login-cancelled': [string] }> {
   readonly views = new Map<string, AiView>()
   activeId: string | null = null
   /** While the shell shows a panel (settings) over the content area, every view is hidden. */
   private overlaid = false
+  /** While a browser sign-in overlay is up for this AI, its view is hidden so the overlay shows. */
+  private loginAiId: string | null = null
   private rect: Rect = { x: 0, y: 0, width: 800, height: 600 }
 
   constructor(
@@ -69,7 +73,7 @@ export class ViewManager extends EventEmitter<{ changed: [] }> {
     this.views.set(ai.id, entry)
 
     const wc = view.webContents
-    guardNavigation(wc, ai)
+    guardNavigation(wc, ai, false, () => this.prefs.onBlockedAuth(ai.id))
     // Chromium resets the zoom on cross-document navigations: re-apply the AI's own factor.
     wc.on('did-navigate', () => wc.setZoomFactor(this.prefs.zoom(ai.id)))
     const changed = () => this.emit('changed')
@@ -115,11 +119,17 @@ export class ViewManager extends EventEmitter<{ changed: [] }> {
   select(id: string | undefined): AiView | undefined {
     const entry = id ? this.views.get(id) : undefined
     if (!entry) return undefined
+    // Switching to a different AI ends any browser sign-in overlay in progress.
+    if (this.loginAiId && entry.ai.id !== this.loginAiId) {
+      const cancelled = this.loginAiId
+      this.loginAiId = null
+      this.emit('login-cancelled', cancelled)
+    }
     this.load(entry)
     this.activeId = entry.ai.id
     this.applyVisibility()
     entry.view.setBounds(this.rect)
-    if (!this.overlaid) entry.view.webContents.focus()
+    if (!this.overlaid && !this.loginAiId) entry.view.webContents.focus()
     this.emit('changed')
     return entry
   }
@@ -127,7 +137,14 @@ export class ViewManager extends EventEmitter<{ changed: [] }> {
   setOverlay(overlaid: boolean): void {
     this.overlaid = overlaid
     this.applyVisibility()
-    if (!overlaid) this.active?.view.webContents.focus()
+    if (!overlaid && !this.loginAiId) this.active?.view.webContents.focus()
+  }
+
+  /** Hides the AI's view while the browser sign-in overlay is shown (null clears it). */
+  setLoginOverlay(aiId: string | null): void {
+    this.loginAiId = aiId
+    this.applyVisibility()
+    if (!aiId && !this.overlaid) this.active?.view.webContents.focus()
   }
 
   get isOverlaid(): boolean {
@@ -135,7 +152,8 @@ export class ViewManager extends EventEmitter<{ changed: [] }> {
   }
 
   private applyVisibility(): void {
-    for (const [id, e] of this.views) e.view.setVisible(!this.overlaid && id === this.activeId)
+    const hidden = this.overlaid || this.loginAiId !== null
+    for (const [id, e] of this.views) e.view.setVisible(!hidden && id === this.activeId)
   }
 
   get active(): AiView | undefined {
