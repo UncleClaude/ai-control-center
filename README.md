@@ -181,7 +181,7 @@ npm run dist:mac
 # → dist/AI-Control-Center-<version>-arm64.dmg and -x64.dmg
 ```
 
-**Signing & notarization.** With no certificate the build is unsigned (set `CSC_IDENTITY_AUTO_DISCOVERY=false` so it doesn't look for one), and users clear the Gatekeeper flag manually (`xattr …`). To produce a dmg that **opens with no warning and no command**, sign with a **Developer ID Application** certificate (needs a paid Apple Developer account) and notarize. The CI does this automatically once these repository secrets exist (Settings → Secrets and variables → Actions):
+**Signing & notarization.** With no certificate the build is unsigned (set `CSC_IDENTITY_AUTO_DISCOVERY=false` so it doesn't look for one), and users clear the Gatekeeper flag manually (`xattr …`). To produce a dmg that **opens with no warning and no command**, sign with a **Developer ID Application** certificate (needs a paid Apple Developer account) and notarize. **Full step-by-step guide: [docs/SIGNING.md](docs/SIGNING.md).** The CI does this automatically once these repository secrets exist (Settings → Secrets and variables → Actions):
 
 | Secret | What it is |
 |---|---|
@@ -203,7 +203,7 @@ npm run dist:win
 # → dist/AI-Control-Center-<version>-Setup-x64.exe
 ```
 
-A per-user NSIS installer (assisted; the user can pick the folder). It is **unsigned** by default, so SmartScreen warns once — to sign it, provide a code-signing certificate via `WIN_CSC_LINK` / `WIN_CSC_KEY_PASSWORD`.
+A per-user NSIS installer (assisted; the user can pick the folder). It is **unsigned** by default, so SmartScreen warns once — signing Windows is optional and, these days, non-trivial; see [docs/SIGNING.md](docs/SIGNING.md#windows).
 
 ### Releases (GitHub Actions)
 

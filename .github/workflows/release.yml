@@ -51,17 +51,24 @@ jobs:
           elif [ "${{ matrix.os }}" = "macos-latest" ]; then
             # No cert: build unsigned (identity:null in config) and don't search the keychain.
             CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder ${{ matrix.target }} --publish never
+          elif [ "${{ matrix.os }}" = "windows-latest" ] && [ -n "$WIN_CSC_LINK" ]; then
+            # Windows cert present (a usable .p12): sign the installer. See docs/SIGNING.md.
+            export CSC_LINK="$WIN_CSC_LINK" CSC_KEY_PASSWORD="$WIN_CSC_KEY_PASSWORD"
+            npx electron-builder ${{ matrix.target }} --publish never
           else
             npx electron-builder ${{ matrix.target }} --publish never
           fi
         env:
           # macOS signing / notarization — all optional; without MAC_CSC_LINK the build is unsigned.
-          # Named MAC_* (not CSC_*) so an empty secret never makes electron-builder attempt signing.
+          # Named MAC_* / WIN_* (not CSC_*) so an empty secret never makes electron-builder try to sign.
           MAC_CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
           MAC_CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Windows signing — optional; most public certs now need hardware/cloud HSM (see docs).
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
 
       - uses: actions/upload-artifact@v5
         with:
