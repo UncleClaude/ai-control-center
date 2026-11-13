@@ -1,5 +1,6 @@
 # AI Control Center
-<img width="1024" height="1024" alt="icon" src="https://github.com/user-attachments/assets/55b9a4eb-5ae4-4a2a-9a77-21e8a44c1c73" />
+
+<img width="50%" height="50%" alt="icon" src="https://github.com/user-attachments/assets/55b9a4eb-5ae4-4a2a-9a77-21e8a44c1c73" />
 
 A desktop app that brings **Muse (Meta)**, **Claude** and **ChatGPT** together in one glass window. It uses their official websites and the subscriptions you already have: no API, no keys.
 
