@@ -54,9 +54,8 @@ mac:
   hardenedRuntime: true
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
-  # Unsigned by default (identity null). The release workflow overrides this with
-  # `-c.mac.identity="Developer ID Application"` and imports a cert only when the signing secrets
-  # exist, then signs + notarizes so the dmg opens without the Gatekeeper quarantine step.
+  # Unsigned. On first launch users clear the Gatekeeper quarantine flag
+  # (right-click → Open, or `xattr -dr com.apple.quarantine "/Applications/AI Control Center.app"`).
   identity: null
   extendInfo:
     NSMicrophoneUsageDescription: The AIs use the microphone for voice mode.

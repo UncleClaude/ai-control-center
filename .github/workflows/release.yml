@@ -1,7 +1,7 @@
 # Builds the Linux AppImage, the macOS dmgs (arm64 + x64) and the Windows installer, and attaches
 # them to a GitHub release when a v* tag is pushed. A manual run builds only and keeps the files as
-# artifacts. macOS is signed + notarized when the Developer ID secrets are set (see README);
-# otherwise it is built unsigned.
+# artifacts. All builds are unsigned; Windows can optionally be signed by setting WIN_CSC_*
+# (see docs/SIGNING.md).
 name: Release
 
 on:
@@ -43,30 +43,19 @@ jobs:
       - name: Package
         shell: bash
         run: |
-          if [ "${{ matrix.os }}" = "macos-latest" ] && [ -n "$MAC_CSC_LINK" ]; then
-            # Developer ID cert present: import it, sign and notarize (dmg then opens without xattr).
-            export CSC_LINK="$MAC_CSC_LINK" CSC_KEY_PASSWORD="$MAC_CSC_KEY_PASSWORD" CSC_IDENTITY_AUTO_DISCOVERY=true
-            npx electron-builder ${{ matrix.target }} --publish never \
-              -c.mac.identity="Developer ID Application" -c.mac.notarize=true
-          elif [ "${{ matrix.os }}" = "macos-latest" ]; then
-            # No cert: build unsigned (identity:null in config) and don't search the keychain.
+          if [ "${{ matrix.os }}" = "macos-latest" ]; then
+            # Unsigned macOS build (identity:null in config); don't search the keychain for a cert.
             CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder ${{ matrix.target }} --publish never
           elif [ "${{ matrix.os }}" = "windows-latest" ] && [ -n "$WIN_CSC_LINK" ]; then
-            # Windows cert present (a usable .p12): sign the installer. See docs/SIGNING.md.
+            # Optional Windows cert present (a usable .p12): sign the installer. See docs/SIGNING.md.
             export CSC_LINK="$WIN_CSC_LINK" CSC_KEY_PASSWORD="$WIN_CSC_KEY_PASSWORD"
             npx electron-builder ${{ matrix.target }} --publish never
           else
             npx electron-builder ${{ matrix.target }} --publish never
           fi
         env:
-          # macOS signing / notarization — all optional; without MAC_CSC_LINK the build is unsigned.
-          # Named MAC_* / WIN_* (not CSC_*) so an empty secret never makes electron-builder try to sign.
-          MAC_CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
-          MAC_CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           # Windows signing — optional; most public certs now need hardware/cloud HSM (see docs).
+          # Named WIN_* (not CSC_*) so an empty secret never makes electron-builder try to sign.
           WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
           WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
 
