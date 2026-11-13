@@ -31,6 +31,20 @@ linux:
 appImage:
   artifactName: AI-Control-Center-${version}-${arch}.AppImage
 
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: build/icon.ico
+  # Unsigned by default (SmartScreen warns once). Set WIN_CSC_LINK / WIN_CSC_KEY_PASSWORD to sign.
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  artifactName: AI-Control-Center-${version}-Setup-${arch}.exe
+  shortcutName: AI Control Center
+  uninstallDisplayName: AI Control Center
+
 mac:
   target:
     - target: dmg
@@ -40,8 +54,9 @@ mac:
   hardenedRuntime: true
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
-  # Unsigned by default; set CSC_LINK / CSC_KEY_PASSWORD (or CSC_NAME) to sign.
-  identity: null
+  # Signed + notarized when a Developer ID cert is provided (CSC_LINK + CSC_KEY_PASSWORD and the
+  # APPLE_* notarization secrets); then the dmg opens without the Gatekeeper quarantine step. With
+  # no cert the CI sets CSC_IDENTITY_AUTO_DISCOVERY=false and the build is unsigned, as before.
   extendInfo:
     NSMicrophoneUsageDescription: The AIs use the microphone for voice mode.
     NSCameraUsageDescription: The AIs may use the camera when you ask them to.

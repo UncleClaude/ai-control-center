@@ -50,11 +50,15 @@ The AppImage needs `fuse2` (`sudo pacman -S fuse2`). Alternatively, run it with 
 
 **macOS (dmg)**
 
-Pick `arm64` for Apple Silicon, `x64` for Intel. Drag the app into Applications. The app is **not signed**, so on first launch right-click it → Open, or run:
+Pick `arm64` for Apple Silicon, `x64` for Intel. Drag the app into Applications. If the release was **signed and notarized** (Developer ID — see [§3](#dmg-macos)), it just opens. Otherwise it is **not signed**, so on first launch right-click it → Open, or run:
 
 ```bash
 xattr -dr com.apple.quarantine "/Applications/AI Control Center.app"
 ```
+
+**Windows (installer)**
+
+Run `AI-Control-Center-*-Setup-x64.exe` and follow the installer (it installs per-user, no admin needed). The installer is **not signed**, so SmartScreen shows a warning the first time: click **More info → Run anyway**. Updates download and run the new installer automatically.
 
 ---
 
@@ -166,6 +170,7 @@ To pass Chromium flags, create `~/.config/ai-control-center-flags.conf` with one
 
 > Commit your changes before running `makepkg`: it only takes `HEAD`.
 
+<a id="dmg-macos"></a>
 ### .dmg (macOS)
 
 This has to run **on a Mac**; the dmg cannot be built from Linux.
@@ -176,11 +181,33 @@ npm run dist:mac
 # → dist/AI-Control-Center-<version>-arm64.dmg and -x64.dmg
 ```
 
-To sign and notarize, set `CSC_LINK` / `CSC_KEY_PASSWORD` (or `CSC_NAME`) and remove `identity: null` from `electron-builder.yml`.
+**Signing & notarization.** With no certificate the build is unsigned (set `CSC_IDENTITY_AUTO_DISCOVERY=false` so it doesn't look for one), and users clear the Gatekeeper flag manually (`xattr …`). To produce a dmg that **opens with no warning and no command**, sign with a **Developer ID Application** certificate (needs a paid Apple Developer account) and notarize. The CI does this automatically once these repository secrets exist (Settings → Secrets and variables → Actions):
+
+| Secret | What it is |
+|---|---|
+| `MAC_CSC_LINK` | the Developer ID **Application** certificate as a base64 `.p12` (`base64 -i cert.p12`) |
+| `MAC_CSC_KEY_PASSWORD` | the `.p12` export password |
+| `APPLE_ID` | your Apple ID e-mail |
+| `APPLE_APP_SPECIFIC_PASSWORD` | an [app-specific password](https://support.apple.com/102654) for that Apple ID |
+| `APPLE_TEAM_ID` | your 10-character Apple Developer Team ID |
+
+When `MAC_CSC_LINK` is set the release workflow signs with the hardened runtime and notarizes (`--config.mac.notarize=true`); the stapled dmg then opens on any Mac with no quarantine step. Without the secrets the build stays unsigned and nothing else changes. Locally you can do the same by exporting `CSC_LINK`, `CSC_KEY_PASSWORD` and the `APPLE_*` variables before `npm run dist:mac`.
+
+### Windows installer (.exe)
+
+Builds **on Windows** (no Wine needed in CI):
+
+```bash
+npm install
+npm run dist:win
+# → dist/AI-Control-Center-<version>-Setup-x64.exe
+```
+
+A per-user NSIS installer (assisted; the user can pick the folder). It is **unsigned** by default, so SmartScreen warns once — to sign it, provide a code-signing certificate via `WIN_CSC_LINK` / `WIN_CSC_KEY_PASSWORD`.
 
 ### Releases (GitHub Actions)
 
-`.github/workflows/release.yml` builds the AppImage on Ubuntu and both dmgs on macOS, then attaches them to a GitHub release. To publish a version:
+`.github/workflows/release.yml` builds the AppImage on Ubuntu, both dmgs on macOS and the installer on Windows, then attaches them to a GitHub release. macOS is signed + notarized when the secrets above are set. To publish a version:
 
 ```bash
 npm version patch          # or minor / major: bumps package.json and creates the v* tag
@@ -356,7 +383,8 @@ Email/password and Microsoft sign-in still work embedded, directly in the app; o
 At launch the app checks the project's GitHub releases for a newer version. If there is one, it asks whether to install it (**Mettre à jour** / **Plus tard**):
 
 - **Linux (AppImage):** it downloads the new AppImage, swaps it in place and restarts — fully automatic. This needs the app to run as an AppImage (so it knows its own path); a `makepkg` install updates through `pacman` instead.
-- **macOS:** it downloads the dmg and runs a small installer script that waits for the app to quit, swaps the new `AI Control Center.app` into `/Applications`, removes the Gatekeeper quarantine flag (`xattr -dr com.apple.quarantine`) so it opens without a warning, and relaunches. If it can't write to `/Applications`, it falls back to opening the dmg for a manual drag.
+- **Windows:** it downloads the new installer and runs it; the installer closes the app, updates in place and relaunches — fully automatic (SmartScreen may warn once if the build is unsigned).
+- **macOS:** it downloads the dmg and runs a small installer script that waits for the app to quit, swaps the new `AI Control Center.app` into `/Applications`, removes the Gatekeeper quarantine flag (`xattr -dr com.apple.quarantine`) so it opens without a warning, and relaunches. If it can't write to `/Applications`, it falls back to opening the dmg for a manual drag. (With a signed + notarized build the quarantine step is unnecessary; the script still runs it harmlessly.)
 
 **Réglages → Mises à jour** has a manual **Vérifier maintenant** button and a toggle to turn the launch-time check off.
 

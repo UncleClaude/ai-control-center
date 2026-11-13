@@ -42,7 +42,10 @@ let shortcutError: string | null = null
 let pendingUpdate: UpdateInfo | null = null
 
 function publicUpdate(info: UpdateInfo): { version: string; notes: string; pageUrl: string; selfInstall: boolean } {
-  const selfInstall = process.platform === 'linux' && !!process.env.APPIMAGE && !!info.asset
+  // Platforms that download and apply the update themselves (vs. just opening the download page).
+  const selfInstall =
+    (process.platform === 'linux' && !!process.env.APPIMAGE && !!info.asset) ||
+    (process.platform === 'win32' && !!info.asset)
   return { version: info.version, notes: info.notes.slice(0, 2000), pageUrl: info.pageUrl, selfInstall }
 }
 /** ais.json accents, before the user's per-AI overrides. */

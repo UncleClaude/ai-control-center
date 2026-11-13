@@ -2,7 +2,7 @@
   "name": "ai-control-center",
   "productName": "AI Control Center",
   "desktopName": "ai-control-center.desktop",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Desktop app gathering Muse, Claude and ChatGPT web apps in one glass window.",
   "license": "MIT",
   "author": "AI Control Center contributors",
@@ -21,7 +21,8 @@
     "build": "npm run typecheck && electron-vite build",
     "dist:linux": "npm run build && electron-builder --linux AppImage",
     "dist:dir": "npm run build && electron-builder --dir",
-    "dist:mac": "npm run build && electron-builder --mac dmg --arm64 --x64"
+    "dist:mac": "npm run build && electron-builder --mac dmg --arm64 --x64",
+    "dist:win": "npm run build && electron-builder --win nsis --x64"
   },
   "engines": {
     "node": ">=22.12.0"

@@ -6,10 +6,11 @@ import { join } from 'node:path'
 import { app, shell } from 'electron'
 
 /**
- * Self-update from GitHub releases. The app compares its version to the latest release and, on
- * Linux, downloads the new AppImage and swaps it in place (full auto-update). macOS builds are
- * unsigned, so they cannot silently self-install: the dmg is downloaded and opened for the user to
- * drag into Applications. Everything goes through the public releases API; no token is used.
+ * Self-update from GitHub releases. The app compares its version to the latest release and applies
+ * it per platform: Linux swaps the AppImage in place; Windows downloads the NSIS installer and runs
+ * it (it closes the app, updates and relaunches); macOS downloads the dmg and, when running from
+ * /Applications, a detached script swaps the bundle and reopens. Everything goes through the public
+ * releases API; no token is used.
  */
 
 const REPO = 'UncleClaude/ai-control-center'
@@ -51,6 +52,7 @@ function assetFor(assets: Array<{ name: string; browser_download_url: string; si
   if (process.platform === 'darwin') {
     return pick((n) => n.endsWith(`-${process.arch}.dmg`)) ?? pick((n) => n.endsWith('.dmg'))
   }
+  if (process.platform === 'win32') return pick((n) => n.endsWith('.exe'))
   return undefined
 }
 
@@ -128,6 +130,14 @@ export async function applyUpdate(info: UpdateInfo, onProgress?: (fraction: numb
       }
     }
     return 'relaunch'
+  }
+  if (process.platform === 'win32' && info.asset) {
+    const dest = join(app.getPath('temp'), info.asset.name)
+    await download(info.asset.url, dest, onProgress, info.asset.size)
+    // Launch the NSIS installer, detached so it outlives this process: it closes the running app,
+    // updates in place and relaunches. The caller quits right after, freeing the executable.
+    spawn(dest, [], { detached: true, stdio: 'ignore' }).unref()
+    return 'quit'
   }
   if (process.platform === 'darwin' && info.asset) {
     const dest = join(app.getPath('downloads'), info.asset.name)

@@ -1,5 +1,7 @@
-# Builds the Linux AppImage and the macOS dmgs (arm64 + x64), and attaches them to a GitHub
-# release when a v* tag is pushed. A manual run builds only and keeps the files as artifacts.
+# Builds the Linux AppImage, the macOS dmgs (arm64 + x64) and the Windows installer, and attaches
+# them to a GitHub release when a v* tag is pushed. A manual run builds only and keeps the files as
+# artifacts. macOS is signed + notarized when the Developer ID secrets are set (see README);
+# otherwise it is built unsigned.
 name: Release
 
 on:
@@ -22,6 +24,9 @@ jobs:
           - os: macos-latest
             target: --mac dmg --arm64 --x64
             files: dist/*.dmg
+          - os: windows-latest
+            target: --win nsis --x64
+            files: dist/*.exe
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
@@ -36,10 +41,23 @@ jobs:
       - run: npm run build
 
       - name: Package
-        run: npx electron-builder ${{ matrix.target }} --publish never
+        shell: bash
+        run: |
+          if [ "${{ matrix.os }}" = "macos-latest" ] && [ -n "$CSC_LINK" ]; then
+            # Developer ID cert present: sign and notarize (then the dmg opens without xattr).
+            npx electron-builder ${{ matrix.target }} --publish never -c.mac.notarize=true
+          else
+            npx electron-builder ${{ matrix.target }} --publish never
+          fi
         env:
-          # Unsigned macOS build: do not look for a signing identity in the keychain.
-          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          # macOS signing / notarization — all optional; absent ⇒ unsigned build.
+          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Only hunt for a signing identity when a certificate was actually provided.
+          CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.MAC_CSC_LINK != '' && 'true' || 'false' }}
 
       - uses: actions/upload-artifact@v5
         with:
