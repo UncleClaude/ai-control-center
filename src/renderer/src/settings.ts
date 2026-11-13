@@ -60,42 +60,47 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.closePath()
 }
 
+type LogoFit = 'contain' | 'cover'
+
+/** Suggests a default fit: an image with its own background fills the bubble, a cut-out is inset. */
+function defaultFit(img: HTMLImageElement): LogoFit {
+  return transparentFraction(img) > 0.06 ? 'contain' : 'cover'
+}
+
 /**
- * Processes any uploaded image into the app's icon style: a rounded square "bubble" matching the
- * built-in logos. An image that already has its own background fills the bubble (cover); a cut-out
- * glyph is centred with padding on the AI's accent colour. Returns a 256×256 PNG data URL.
+ * Draws an image into the app's icon "bubble": a rounded square matching the built-in logos.
+ * `cover` fills it edge-to-edge (overflow cropped); `contain` insets the image with padding.
+ * `bg` paints behind the image, so it shows as the bubble colour for `contain` and through any
+ * transparency for `cover`.
  */
-async function bubbleIcon(file: File, accent: string): Promise<string> {
-  const img = await loadImage(file)
+function drawBubble(ctx: CanvasRenderingContext2D, img: HTMLImageElement, size: number, bg: string, fit: LogoFit): void {
+  const w0 = img.naturalWidth || img.width
+  const h0 = img.naturalHeight || img.height
+  ctx.clearRect(0, 0, size, size)
+  ctx.save()
+  ctx.imageSmoothingQuality = 'high'
+  // Same corner radius as the bundled SVGs (rx 16 on a 64 viewBox = 25 %).
+  roundRect(ctx, 0, 0, size, size, size * 0.25)
+  ctx.clip()
+  ctx.fillStyle = /^#[0-9a-fA-F]{6}$/.test(bg) ? bg : '#3a3f47'
+  ctx.fillRect(0, 0, size, size)
+  const box = fit === 'contain' ? size * 0.62 : size
+  const scale = fit === 'contain' ? Math.min(box / w0, box / h0) : Math.max(size / w0, size / h0)
+  const w = w0 * scale
+  const h = h0 * scale
+  ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h)
+  ctx.restore()
+}
+
+/** Renders the final 256×256 PNG data URL for storage. */
+function bubbleDataUrl(img: HTMLImageElement, bg: string, fit: LogoFit): string {
   const size = 256
   const canvas = el('canvas')
   canvas.width = size
   canvas.height = size
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('canvas indisponible')
-  ctx.imageSmoothingQuality = 'high'
-  // Same corner radius as the bundled SVGs (rx 16 on a 64 viewBox = 25 %).
-  roundRect(ctx, 0, 0, size, size, size * 0.25)
-  ctx.clip()
-
-  const w0 = img.naturalWidth || img.width
-  const h0 = img.naturalHeight || img.height
-  const cutOut = transparentFraction(img) > 0.06
-  if (cutOut) {
-    ctx.fillStyle = /^#[0-9a-fA-F]{6}$/.test(accent) ? accent : '#3a3f47'
-    ctx.fillRect(0, 0, size, size)
-    const box = size * 0.62
-    const scale = Math.min(box / w0, box / h0)
-    const w = w0 * scale
-    const h = h0 * scale
-    ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h)
-  } else {
-    // Cover: fill the bubble edge-to-edge, cropping the overflow.
-    const scale = Math.max(size / w0, size / h0)
-    const w = w0 * scale
-    const h = h0 * scale
-    ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h)
-  }
+  drawBubble(ctx, img, size, bg, fit)
   return canvas.toDataURL('image/png')
 }
 
@@ -406,7 +411,7 @@ export class SettingsPanel {
     zoom.append(minus, value, plus)
     const zoomWrap = el('span', 'field-control')
     zoomWrap.append(el('span', 'mini-label', 'Zoom'), zoom)
-    // Logo: pick an image, resized into a bubble matching the other icons.
+    // Logo: pick an image, then adjust its bubble (background colour + fit) before applying.
     const fileInput = el('input')
     fileInput.type = 'file'
     fileInput.accept = 'image/png,image/jpeg,image/webp,image/gif,image/svg+xml'
@@ -417,13 +422,13 @@ export class SettingsPanel {
       if (!f) return
       changeBtn.disabled = true
       try {
-        const dataUrl = await bubbleIcon(f, prefs.accent)
-        await this.mutateAi(() => api.setAiIcon(ai.id, dataUrl), () => (changeBtn.disabled = false))
+        const img = await loadImage(f)
+        this.openLogoEditor(card, ai.id, prefs.accent, img)
       } catch {
-        changeBtn.disabled = false
         changeBtn.classList.add('danger')
         window.setTimeout(() => changeBtn.classList.remove('danger'), 2000)
       }
+      changeBtn.disabled = false
       fileInput.value = ''
     })
     const logoWrap = el('span', 'field-control')
@@ -526,6 +531,82 @@ export class SettingsPanel {
       },
       'danger',
     )
+  }
+
+  /** Inline editor shown after picking a logo: live preview + background colour + fit, then apply. */
+  private openLogoEditor(card: HTMLElement, id: string, accent: string, img: HTMLImageElement): void {
+    card.querySelector('.logo-editor')?.remove()
+    let bg = /^#[0-9a-fA-F]{6}$/.test(accent) ? accent : '#3a3f47'
+    let fit: LogoFit = defaultFit(img)
+
+    const editor = el('div', 'logo-editor')
+    const preview = el('canvas', 'logo-preview')
+    preview.width = 128
+    preview.height = 128
+    const pctx = preview.getContext('2d')
+    const paint = () => {
+      if (pctx) drawBubble(pctx, img, 128, bg, fit)
+    }
+    paint()
+
+    const color = el('input', 'color-input')
+    color.type = 'color'
+    color.value = bg
+    color.title = 'Couleur du fond de la bulle'
+    color.setAttribute('aria-label', 'Couleur du fond du logo')
+    color.addEventListener('input', () => {
+      bg = color.value
+      paint()
+    })
+    const colorWrap = el('span', 'field-control')
+    colorWrap.append(el('span', 'mini-label', 'Fond'), color)
+
+    const fitSeg = segmented<LogoFit>(
+      [
+        ['contain', 'Ajusté'],
+        ['cover', 'Rempli'],
+      ],
+      fit,
+      (v) => {
+        fit = v
+        paint()
+        fitSeg.querySelectorAll('button').forEach((b) => {
+          const on = b.textContent === (v === 'contain' ? 'Ajusté' : 'Rempli')
+          b.classList.toggle('active', on)
+          b.setAttribute('aria-pressed', String(on))
+        })
+      },
+    )
+    const fitWrap = el('span', 'field-control')
+    fitWrap.append(el('span', 'mini-label', 'Cadrage'), fitSeg)
+
+    const apply = pill(icons.check, 'Appliquer', 'Appliquer ce logo', (b) => {
+      b.disabled = true
+      try {
+        const dataUrl = bubbleDataUrl(img, bg, fit)
+        void this.mutateAi(
+          () => api.setAiIcon(id, dataUrl),
+          (msg) => {
+            b.disabled = false
+            b.querySelector('span')!.textContent = msg.slice(0, 18)
+          },
+        )
+      } catch {
+        b.disabled = false
+        b.querySelector('span')!.textContent = 'Échec'
+      }
+    })
+    const cancel = pill(icons.close, 'Annuler', 'Abandonner', () => editor.remove())
+
+    const controls = el('div', 'logo-editor-controls')
+    controls.append(colorWrap, fitWrap)
+    const actions = el('div', 'logo-editor-actions')
+    actions.append(apply, cancel)
+    const col = el('div', 'logo-editor-col')
+    col.append(controls, actions)
+    editor.append(preview, col)
+    card.append(editor)
+    editor.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
   }
 
   /** Cache / sign-out buttons. Sign-out asks for a second click within 4 s. */

@@ -845,6 +845,37 @@ img {
 .ai-card-row .spacer {
   flex: 1;
 }
+.logo-editor {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--glass-border-soft);
+}
+.logo-preview {
+  width: 60px;
+  height: 60px;
+  flex-shrink: 0;
+  border-radius: 15px;
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.18),
+    0 0 0 0.5px rgba(0, 0, 0, 0.12);
+}
+.logo-editor-col {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 18px;
+}
+.logo-editor-controls,
+.logo-editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 18px;
+}
 .ai-card-name.editable {
   cursor: text;
   border-radius: 6px;
