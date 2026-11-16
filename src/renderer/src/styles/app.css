@@ -468,6 +468,12 @@ img {
     transform 0.42s var(--ease-glide);
   user-select: text;
 }
+/* A closed panel must be fully gone: `display:flex` above otherwise overrides [hidden], leaving the
+   invisible panel stacked over the stage where it swallows every click meant for the one on top. */
+.settings[hidden],
+.usage[hidden] {
+  display: none;
+}
 .settings.visible,
 .usage.visible {
   opacity: 1;
@@ -500,7 +506,9 @@ img {
   display: grid;
   gap: 26px;
   align-content: start;
-  max-width: 760px;
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
   scrollbar-width: thin;
 }
 .settings-section h2 {

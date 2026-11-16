@@ -14,12 +14,6 @@ type RawResult = { loggedOut?: boolean; error?: string; usage?: unknown }
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
 
-/** Called after the Muse reader borrows keyboard focus, to hand it back to the shell. */
-let refocusShell: (() => void) | null = null
-export function setUsageRefocus(fn: () => void): void {
-  refocusShell = fn
-}
-
 interface Reader {
   /** JS evaluated IN the page (main world); returns a RawResult. Only reads usage numbers. */
   script: string
@@ -314,8 +308,9 @@ class UsageReader {
     try {
       const hook = await evalInView<string>(wc, MUSE_HOOK, 4_000)
       if (hook !== 'ok') return fail('Non connecté à ce service.', 'logged-out')
-      wc.focus()
       // Open the dock menu, then the Settings item (locations read live from the DOM).
+      // Mouse / key events are injected by coordinate, so the view is never focused — focusing the
+      // hidden view would steal input focus from the shell (settings become unclickable on Wayland).
       const dock = await evalInView<{ lo?: boolean; x?: number | null; y?: number }>(wc, MUSE_DOCK_RECT, 3_000).catch(() => null)
       if (dock?.lo) return fail('Non connecté à ce service.', 'logged-out')
       if (!dock || dock.x == null) return fail('Ouvre une fois les Réglages de Muse, puis réessaie.')
@@ -331,7 +326,6 @@ class UsageReader {
         if (data && data.ok) break
       }
       escape() // close Settings (and the dock menu if still open)
-      refocusShell?.()
       if (!data || !data.ok || !data.windows || !data.windows.length) {
         return fail('Ouvre une fois les Réglages de Muse, puis réessaie.')
       }
@@ -342,7 +336,6 @@ class UsageReader {
       }))
       return { id: t.id, status: 'ok', plan: data.plan ?? null, windows, detail: null, fetchedAt: Date.now() }
     } catch {
-      refocusShell?.()
       return fail('Lecture du quota impossible.')
     }
   }
