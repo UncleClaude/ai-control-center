@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { app } from 'electron'
-import type { GlassPreference, ThemePreference } from '../shared/protocol'
+import type { GlassPreference, ShortcutBinding, ThemePreference } from '../shared/protocol'
 
 export interface AiPrefs {
   notifications: boolean
@@ -24,6 +24,7 @@ export interface Prefs {
   startupAi: string
   globalShortcut: boolean
   globalShortcutKey: string
+  shortcuts: ShortcutBinding[]
   doNotDisturb: boolean
   /** Check GitHub for updates at launch and prompt. */
   autoUpdate: boolean
@@ -51,6 +52,7 @@ const DEFAULTS: AppState = {
     startupAi: 'last',
     globalShortcut: false,
     globalShortcutKey: 'CommandOrControl+Shift+Space',
+    shortcuts: [],
     doNotDisturb: false,
     autoUpdate: true,
     order: [],

@@ -1,4 +1,4 @@
-import type { AddAiSpec, AiAction, AiPublic, AiSettings, GlassPreference, Platform, Settings, SettingsPatch, ThemePreference } from '../../shared/protocol'
+import type { AddAiSpec, AiAction, AiPublic, AiSettings, GlassPreference, Platform, Settings, SettingsPatch, ShortcutAction, ShortcutBinding, ThemePreference } from '../../shared/protocol'
 import { icons } from './icons'
 
 const api = window.aicc
@@ -168,6 +168,53 @@ function box(...children: (HTMLElement | null)[]): HTMLDivElement {
   return b
 }
 
+function genId(): string {
+  try {
+    return crypto.randomUUID()
+  } catch {
+    return `sc-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`
+  }
+}
+
+const KEY_CODE_MAP: Record<string, string> = {
+  Space: 'Space', Minus: '-', Equal: '=', Comma: ',', Period: '.', Slash: '/', Backslash: '\\',
+  Semicolon: ';', Quote: "'", BracketLeft: '[', BracketRight: ']', Backquote: '`',
+  ArrowUp: 'Up', ArrowDown: 'Down', ArrowLeft: 'Left', ArrowRight: 'Right',
+  Enter: 'Return', Tab: 'Tab', Backspace: 'Backspace', Delete: 'Delete',
+  Home: 'Home', End: 'End', PageUp: 'PageUp', PageDown: 'PageDown', Insert: 'Insert',
+}
+
+/** Converts a keydown into an Electron accelerator ("CommandOrControl+Shift+M"), or null if invalid. */
+function keyEventToAccelerator(e: KeyboardEvent): string | null {
+  const parts: string[] = []
+  if (e.ctrlKey) parts.push('CommandOrControl')
+  if (e.metaKey) parts.push('Super')
+  if (e.altKey) parts.push('Alt')
+  if (e.shiftKey) parts.push('Shift')
+  const c = e.code
+  let key = ''
+  const letter = /^Key([A-Z])$/.exec(c)
+  const digit = /^Digit([0-9])$/.exec(c)
+  const fn = /^F([0-9]{1,2})$/.exec(c)
+  if (letter) key = letter[1]
+  else if (digit) key = digit[1]
+  else if (fn) key = `F${fn[1]}`
+  else key = KEY_CODE_MAP[c] ?? ''
+  if (!key) return null
+  parts.push(key)
+  return parts.join('+')
+}
+
+/** Human-readable accelerator for display. */
+function prettyAccelerator(accel: string, platform: Platform): string {
+  return accel
+    .split('+')
+    .map((p) =>
+      p === 'CommandOrControl' ? (platform === 'darwin' ? '⌘' : 'Ctrl') : p === 'Super' ? (platform === 'darwin' ? '⌘' : 'Super') : p === 'Alt' ? (platform === 'darwin' ? '⌥' : 'Alt') : p,
+    )
+    .join(' + ')
+}
+
 /** Settings panel, shown over the content area (main hides the site views meanwhile). */
 export class SettingsPanel {
   private open = false
@@ -239,6 +286,7 @@ export class SettingsPanel {
       this.appearanceSection(s),
       this.notificationsSection(s),
       this.startupSection(s),
+      this.shortcutsSection(s),
       this.updatesSection(s),
       this.filesSection(s),
       this.aboutSection(s),
@@ -774,6 +822,121 @@ export class SettingsPanel {
         shortcutNote,
       ),
     )
+  }
+
+  private shortcutsSection(s: Settings): HTMLElement {
+    const ACTIONS: { value: ShortcutAction; label: string; needsAi: boolean; museOnly?: boolean }[] = [
+      { value: 'select-ai', label: 'Aller à une IA', needsAi: true },
+      { value: 'toggle-window', label: 'Afficher / masquer la fenêtre', needsAi: false },
+      { value: 'muse-call', label: 'Muse : démarrer / terminer l’appel', needsAi: true, museOnly: true },
+      { value: 'muse-mic', label: 'Muse : parler (micro on/off)', needsAi: true, museOnly: true },
+    ]
+    const museAis = s.ais.filter((a) => s.ai[a.id]?.adapter === 'muse')
+    const save = (list: ShortcutBinding[]) => void this.patch({ shortcuts: list })
+
+    const rows = s.shortcuts.map((b) => this.shortcutRow(s, b, ACTIONS, museAis, save))
+
+    const add = el('button', 'add-shortcut')
+    add.type = 'button'
+    add.innerHTML = `${icons.plus}<span>Ajouter un raccourci</span>`
+    add.addEventListener('click', () => {
+      save([...s.shortcuts, { id: genId(), accelerator: '', action: 'select-ai', aiId: s.ais[0]?.id }])
+    })
+
+    const note = el(
+      'p',
+      'field-note',
+      this.platform() === 'linux'
+        ? 'Raccourcis globaux (même fenêtre masquée). Sous Wayland, KDE / Hyprland peuvent demander une confirmation. Les actions Muse exigent que Muse reste chargé (activé dans la liste).'
+        : 'Raccourcis globaux, même fenêtre masquée. Les actions Muse exigent que Muse reste chargé.',
+    )
+
+    return section('Raccourcis', box(...(rows.length ? rows : [el('p', 'field-note', 'Aucun raccourci. Ajoutes-en un ci-dessous.')]), add), note)
+  }
+
+  private shortcutRow(
+    s: Settings,
+    b: ShortcutBinding,
+    actions: { value: ShortcutAction; label: string; needsAi: boolean; museOnly?: boolean }[],
+    museAis: AiPublic[],
+    save: (list: ShortcutBinding[]) => void,
+  ): HTMLElement {
+    const meta = actions.find((a) => a.value === b.action) ?? actions[0]
+    const row = el('div', 'shortcut-row')
+
+    const rec = el('button', 'shortcut-key')
+    rec.type = 'button'
+    rec.textContent = b.accelerator ? prettyAccelerator(b.accelerator, this.platform()) : 'Définir la touche…'
+    if (!b.accelerator) rec.classList.add('empty')
+    rec.addEventListener('click', () =>
+      this.recordShortcut(rec, (accel) => save(s.shortcuts.map((x) => (x.id === b.id ? { ...x, accelerator: accel } : x)))),
+    )
+
+    const actionSel = el('select', 'shortcut-action')
+    for (const a of actions) {
+      const o = el('option')
+      o.value = a.value
+      o.textContent = a.label
+      o.selected = a.value === b.action
+      actionSel.append(o)
+    }
+    actionSel.addEventListener('change', () => {
+      const action = actionSel.value as ShortcutAction
+      const m = actions.find((a) => a.value === action)!
+      let aiId = b.aiId
+      if (m.museOnly) aiId = museAis.find((a) => a.id === b.aiId)?.id ?? museAis[0]?.id
+      else if (m.needsAi && !aiId) aiId = s.ais[0]?.id
+      save(s.shortcuts.map((x) => (x.id === b.id ? { ...x, action, aiId } : x)))
+    })
+
+    const aiOptions = meta.museOnly ? museAis : s.ais
+    const aiSel = el('select', 'shortcut-ai')
+    for (const a of aiOptions) {
+      const o = el('option')
+      o.value = a.id
+      o.textContent = a.name
+      o.selected = a.id === b.aiId
+      aiSel.append(o)
+    }
+    aiSel.addEventListener('change', () => save(s.shortcuts.map((x) => (x.id === b.id ? { ...x, aiId: aiSel.value } : x))))
+
+    const del = button('icon-btn shortcut-del', icons.trash, 'Supprimer ce raccourci', () =>
+      save(s.shortcuts.filter((x) => x.id !== b.id)),
+    )
+
+    if (meta.needsAi && aiOptions.length) row.append(rec, actionSel, aiSel, del)
+    else row.append(rec, actionSel, el('span', 'shortcut-spacer'), del)
+
+    const err = s.shortcutErrors[b.id]
+    const warn = meta.museOnly && !museAis.length ? 'Aucune IA Muse disponible' : err
+    if (warn) {
+      const wrap = el('div', 'shortcut-wrap')
+      wrap.append(row, el('p', 'shortcut-err', warn))
+      return wrap
+    }
+    return row
+  }
+
+  /** Captures the next key combo into `onCapture`; Escape cancels. */
+  private recordShortcut(btn: HTMLButtonElement, onCapture: (accel: string) => void): void {
+    btn.classList.add('recording')
+    btn.textContent = 'Appuie sur une combinaison…'
+    const handler = (e: KeyboardEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      if (e.key === 'Escape') {
+        cleanup()
+        this.render()
+        return
+      }
+      if (['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) return // wait for the main key
+      const accel = keyEventToAccelerator(e)
+      cleanup()
+      if (accel) onCapture(accel)
+      else this.render()
+    }
+    const cleanup = () => document.removeEventListener('keydown', handler, true)
+    document.addEventListener('keydown', handler, true)
   }
 
   private filesSection(s: Settings): HTMLElement {

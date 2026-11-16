@@ -124,6 +124,23 @@ export interface WebNotificationPayload {
   tag: string
 }
 
+/** What a user-defined global shortcut does. */
+export type ShortcutAction =
+  | 'toggle-window' // show / hide the app
+  | 'select-ai' // bring up a given AI
+  | 'muse-call' // start / end Muse's voice call
+  | 'muse-mic' // toggle Muse's microphone (talk / stop) during a call
+
+/** One configurable global shortcut. */
+export interface ShortcutBinding {
+  id: string
+  /** Electron accelerator, e.g. "CommandOrControl+Shift+M"; empty while being recorded. */
+  accelerator: string
+  action: ShortcutAction
+  /** Target AI for 'select-ai' and the Muse actions. */
+  aiId?: string
+}
+
 /** One rate-limit window a provider reports (e.g. a 5-hour or weekly budget). */
 export interface UsageWindow {
   /** Short label, e.g. "5 h", "Semaine", "30 jours". */
@@ -174,6 +191,8 @@ export interface AiSettings {
   url: string
   /** The logo was replaced by the user (so a reset-to-default button can show). */
   iconCustom: boolean
+  /** Adapter name (e.g. "muse"); null for the generic adapter. Used to target Muse-only actions. */
+  adapter: string | null
 }
 
 /** Create a new AI entry: a fresh instance of an existing AI (own login), or a custom service. */
@@ -208,6 +227,10 @@ export interface Settings {
   globalShortcutKey: string
   /** Registration failure for the global shortcut, if any. */
   globalShortcutError: string | null
+  /** User-defined global shortcuts (AI switching, Muse call / mic…). */
+  shortcuts: ShortcutBinding[]
+  /** Registration failure per shortcut id (duplicate / invalid), if any. */
+  shortcutErrors: Record<string, string>
   doNotDisturb: boolean
   autoUpdate: boolean
   /** Rail order (ids, every configured AI). */
@@ -248,6 +271,7 @@ export type SettingsPatch = Partial<
     | 'doNotDisturb'
     | 'autoUpdate'
     | 'order'
+    | 'shortcuts'
   >
 > & {
   ai?: Record<string, AiSettingsPatch>

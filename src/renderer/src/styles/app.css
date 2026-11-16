@@ -1318,3 +1318,110 @@ img {
   font-size: 11px;
   color: var(--text-faint);
 }
+
+/* ---------- Shortcuts editor ---------- */
+
+.shortcut-wrap {
+  display: grid;
+  gap: 4px;
+}
+.shortcut-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+}
+.shortcut-key {
+  flex: none;
+  min-width: 140px;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 10px;
+  background: var(--glass-fill);
+  box-shadow: inset 0 0 0 1px var(--hairline, rgba(255, 255, 255, 0.14));
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  text-align: center;
+  transition: box-shadow 0.15s var(--ease-out);
+}
+.shortcut-key:hover {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 50%, transparent);
+}
+.shortcut-key.empty {
+  color: var(--text-muted);
+}
+.shortcut-key.recording {
+  box-shadow: inset 0 0 0 2px var(--accent);
+  color: var(--accent);
+}
+.shortcut-action {
+  flex: 1;
+  min-width: 0;
+}
+.shortcut-ai {
+  flex: none;
+  max-width: 180px;
+}
+.shortcut-action,
+.shortcut-ai {
+  padding: 8px 10px;
+  border: none;
+  border-radius: 10px;
+  background: var(--glass-fill);
+  box-shadow: inset 0 0 0 1px var(--hairline, rgba(255, 255, 255, 0.14));
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.shortcut-spacer {
+  flex: none;
+  width: 0;
+}
+.shortcut-del {
+  flex: none;
+}
+.shortcut-del svg {
+  width: 15px;
+  height: 15px;
+}
+.shortcut-err {
+  margin: 0 0 2px 2px;
+  font-size: 11.5px;
+  color: color-mix(in srgb, #f5a623 75%, var(--text-muted));
+}
+.add-shortcut {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 14%, var(--glass-fill));
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s var(--ease-out);
+}
+.add-shortcut:hover {
+  background: color-mix(in srgb, var(--accent) 24%, var(--glass-fill));
+}
+.add-shortcut svg {
+  width: 15px;
+  height: 15px;
+}
+@media (max-width: 640px) {
+  .shortcut-row {
+    flex-wrap: wrap;
+  }
+  .shortcut-action,
+  .shortcut-ai {
+    flex: 1 1 100%;
+    max-width: none;
+  }
+}

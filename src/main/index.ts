@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { app, globalShortcut, ipcMain, nativeTheme, screen, session, shell, WebContentsView, type BaseWindow, type IpcMainEvent } from 'electron'
 import { z } from 'zod'
-import { IPC, type AddAiSpec, type AiPublic, type GlassPreference, type LoginState, type LoginStatus, type Platform, type Settings, type ShellState, type SiteRole } from '../shared/protocol'
+import { IPC, type AddAiSpec, type AiPublic, type GlassPreference, type LoginState, type LoginStatus, type Platform, type Settings, type ShellState, type ShortcutBinding, type SiteRole } from '../shared/protocol'
 import { detectBrowsers, hasSession, macNeedsFullDiskAccess, probe, readCookies, type BrowserProfile } from './browser-cookies'
 import { builtInIconName, configFilePath, customIconDir, isBuiltInId, loadAiConfig, loadRawConfig, materializeAi, saveRawConfig, type AiConfig, type RawAi } from './config'
 import { detectGlass, type GlassInfo } from './glass'
@@ -39,6 +39,7 @@ let glass: GlassInfo
 let quitting = false
 let badges: Record<string, number> = {}
 let shortcutError: string | null = null
+let shortcutErrors: Record<string, string> = {}
 /** The newest release found by a check, kept so applyUpdate knows what to download. */
 let pendingUpdate: UpdateInfo | null = null
 
@@ -428,6 +429,8 @@ function registerIpc(): void {
       globalShortcut: p.globalShortcut,
       globalShortcutKey: p.globalShortcutKey,
       globalShortcutError: shortcutError,
+      shortcuts: p.shortcuts,
+      shortcutErrors,
       doNotDisturb: p.doNotDisturb,
       autoUpdate: p.autoUpdate,
       order: ordered.map((ai) => ai.id),
@@ -447,6 +450,7 @@ function registerIpc(): void {
               builtIn: isBuiltInId(ai.id),
               url: ai.url,
               iconCustom: (ai.icon ?? '').startsWith('custom-icons/'),
+              adapter: ai.adapter ?? null,
             },
           ]
         }),
@@ -481,6 +485,17 @@ function registerIpc(): void {
     startupAi: z.string().max(64).optional(),
     globalShortcut: z.boolean().optional(),
     globalShortcutKey: z.string().min(1).max(80).optional(),
+    shortcuts: z
+      .array(
+        z.object({
+          id: z.string().max(64),
+          accelerator: z.string().max(80),
+          action: z.enum(['toggle-window', 'select-ai', 'muse-call', 'muse-mic']),
+          aiId: z.string().max(64).optional(),
+        }),
+      )
+      .max(40)
+      .optional(),
     doNotDisturb: z.boolean().optional(),
     autoUpdate: z.boolean().optional(),
     order: z.array(Id).max(64).optional(),
@@ -521,7 +536,8 @@ function registerIpc(): void {
     if (patch.launchAtLogin !== undefined || patch.startHidden !== undefined) {
       applyLaunchAtLogin(store.state.prefs.launchAtLogin, store.state.prefs.startHidden)
     }
-    if (patch.globalShortcut !== undefined || patch.globalShortcutKey !== undefined) registerGlobalShortcut()
+    if (patch.globalShortcut !== undefined || patch.globalShortcutKey !== undefined || patch.shortcuts !== undefined)
+      registerGlobalShortcut()
     if (skinChanged) skins?.refreshAll()
     if (railChanged) installMenu(visibleAis(), handlers)
     tray?.refresh()
@@ -885,10 +901,59 @@ const handlers: ShortcutHandlers = {
   zoom: zoomActive,
 }
 
+// Muse voice-call controls: the buttons respond to a plain click (aria-labels checked 2026-11).
+const MUSE_CALL_TOGGLE = `(() => {
+  const btn = (re) => [].slice.call(document.querySelectorAll('button,[role=button]'))
+    .find((e) => re.test((e.getAttribute('aria-label') || '').trim()));
+  const end = btn(/^end call$/i);
+  if (end) { end.click(); return 'ended'; }
+  const start = btn(/^call$/i);
+  if (start) { start.click(); return 'started'; }
+  return 'no-button';
+})()`
+const MUSE_MIC_TOGGLE = `(() => {
+  const m = [].slice.call(document.querySelectorAll('button,[role=button]'))
+    .find((e) => /^(mute|unmute)$/i.test((e.getAttribute('aria-label') || '').trim()));
+  if (!m) return 'not-in-call';
+  m.click();
+  return 'toggled';
+})()`
+
+/** Runs a user-defined shortcut's action. */
+function runShortcut(b: ShortcutBinding): void {
+  if (b.action === 'toggle-window') return toggleWindow()
+  if (b.action === 'select-ai') {
+    if (b.aiId && views?.views.has(b.aiId)) showWindow(b.aiId)
+    return
+  }
+  // Muse call / mic: run in the target view (muse adapter), loaded in the background.
+  const wc = b.aiId ? views?.views.get(b.aiId)?.view.webContents : undefined
+  if (!wc || wc.isDestroyed()) return
+  if (b.action === 'muse-call') {
+    showWindow(b.aiId) // bring Muse up so the call is visible
+    void wc.executeJavaScript(MUSE_CALL_TOGGLE, true).catch(() => {})
+  } else if (b.action === 'muse-mic') {
+    void wc.executeJavaScript(MUSE_MIC_TOGGLE, true).catch(() => {})
+  }
+}
+
+/** Registers the window toggle and every user-defined global shortcut, collecting failures. */
 function registerGlobalShortcut(): void {
+  globalShortcut.unregisterAll()
+  shortcutError = null
+  shortcutErrors = {}
   const p = store.state.prefs
   shortcutError = applyGlobalShortcut(p.globalShortcut, p.globalShortcutKey, toggleWindow)
   if (shortcutError) console.warn(`[shortcut] ${p.globalShortcutKey} : ${shortcutError}`)
+  for (const b of p.shortcuts) {
+    if (!b.accelerator) continue
+    try {
+      if (!globalShortcut.register(b.accelerator, () => runShortcut(b))) shortcutErrors[b.id] = 'déjà utilisé ou refusé'
+    } catch {
+      shortcutErrors[b.id] = 'combinaison invalide'
+    }
+    if (shortcutErrors[b.id]) console.warn(`[shortcut] ${b.accelerator} : ${shortcutErrors[b.id]}`)
+  }
 }
 
 // ---------- Window ----------
