@@ -185,10 +185,15 @@ const KEY_CODE_MAP: Record<string, string> = {
 }
 
 /** Converts a keydown into an Electron accelerator ("CommandOrControl+Shift+M"), or null if invalid. */
-function keyEventToAccelerator(e: KeyboardEvent): string | null {
+function keyEventToAccelerator(e: KeyboardEvent, platform: Platform): string | null {
+  const mac = platform === 'darwin'
   const parts: string[] = []
-  if (e.ctrlKey) parts.push('CommandOrControl')
-  if (e.metaKey) parts.push('Super')
+  // The primary modifier (Cmd on macOS, Ctrl elsewhere) → CommandOrControl: the format that actually
+  // fires, same as the built-in window toggle. Mapping Cmd to "Super" leaves it registered but dead.
+  if (mac ? e.metaKey : e.ctrlKey) parts.push('CommandOrControl')
+  // The other of Ctrl / Meta, when also held.
+  if (mac && e.ctrlKey) parts.push('Control')
+  if (!mac && e.metaKey) parts.push('Super')
   if (e.altKey) parts.push('Alt')
   if (e.shiftKey) parts.push('Shift')
   const c = e.code
@@ -847,8 +852,8 @@ export class SettingsPanel {
       'p',
       'field-note',
       this.platform() === 'linux'
-        ? 'Raccourcis globaux (même fenêtre masquée). Sous Wayland, KDE / Hyprland peuvent demander une confirmation. Les actions Muse exigent que Muse reste chargé (activé dans la liste).'
-        : 'Raccourcis globaux, même fenêtre masquée. Les actions Muse exigent que Muse reste chargé.',
+        ? 'Raccourcis globaux (même fenêtre masquée). Sur Linux, utilise Ctrl ou Alt : la touche Super (Windows/logo) est réservée par KDE et ne déclenchera rien. Les actions Muse exigent que Muse reste chargé (activé dans la liste).'
+        : 'Raccourcis globaux, même fenêtre masquée. Utilise ⌘ ou ⌃ comme modificateur. Les actions Muse exigent que Muse reste chargé.',
     )
 
     return section('Raccourcis', box(...(rows.length ? rows : [el('p', 'field-note', 'Aucun raccourci. Ajoutes-en un ci-dessous.')]), add), note)
@@ -930,7 +935,7 @@ export class SettingsPanel {
         return
       }
       if (['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) return // wait for the main key
-      const accel = keyEventToAccelerator(e)
+      const accel = keyEventToAccelerator(e, this.platform())
       cleanup()
       if (accel) onCapture(accel)
       else this.render()
