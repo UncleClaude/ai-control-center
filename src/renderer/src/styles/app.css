@@ -453,7 +453,8 @@ img {
 .stage {
   position: relative;
 }
-.settings {
+.settings,
+.usage {
   position: absolute;
   inset: 0 var(--gutter) var(--gutter) var(--gutter);
   display: flex;
@@ -467,11 +468,13 @@ img {
     transform 0.42s var(--ease-glide);
   user-select: text;
 }
-.settings.visible {
+.settings.visible,
+.usage.visible {
   opacity: 1;
   transform: none;
 }
-.settings-open .card {
+.settings-open .card,
+.usage-open .card {
   opacity: 0;
 }
 .settings-header {
@@ -1155,4 +1158,155 @@ img {
   font-size: 12.5px;
   line-height: 1.5;
   color: var(--text);
+}
+
+
+/* ---------- Usage (official quotas) ---------- */
+
+.usage-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+@keyframes usage-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.icon-btn.spinning svg {
+  animation: usage-spin 0.8s linear infinite;
+}
+.usage-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 26px 26px;
+  display: grid;
+  gap: 16px;
+  align-content: start;
+  max-width: 760px;
+  width: 100%;
+  margin: 0 auto;
+  scrollbar-width: thin;
+}
+.usage-intro {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+.usage-list {
+  display: grid;
+  gap: 12px;
+}
+.usage-card {
+  display: grid;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  background: var(--glass-fill);
+  box-shadow: inset 0 0 0 1px var(--hairline, rgba(255, 255, 255, 0.12));
+}
+.usage-card-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.usage-ai-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  overflow: hidden;
+  flex: none;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--item-accent, var(--accent)) 40%, transparent);
+}
+.usage-ai-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.usage-ai {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+.usage-ai-name {
+  font-size: 15px;
+  font-weight: 620;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.usage-plan {
+  flex: none;
+  font-size: 10.5px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  color: color-mix(in srgb, var(--item-accent, var(--accent)) 85%, var(--text));
+  background: color-mix(in srgb, var(--item-accent, var(--accent)) 16%, transparent);
+}
+.usage-stamp {
+  flex: none;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+.usage-msg {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.usage-msg.logged-out {
+  color: color-mix(in srgb, #f5a623 70%, var(--text-muted));
+}
+.usage-bars {
+  display: grid;
+  gap: 13px;
+}
+.usage-win {
+  display: grid;
+  gap: 6px;
+}
+.usage-win-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+}
+.usage-win-label {
+  font-size: 13px;
+  font-weight: 540;
+}
+.usage-win-pct {
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.usage-track {
+  height: 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+  overflow: hidden;
+}
+.usage-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--item-accent, var(--accent));
+  transition: width 0.5s var(--ease-out);
+}
+.usage-fill.warn {
+  background: #f5a623;
+}
+.usage-fill.danger {
+  background: #ef4444;
+}
+.usage-win-reset {
+  font-size: 11px;
+  color: var(--text-faint);
 }

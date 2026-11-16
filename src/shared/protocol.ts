@@ -75,6 +75,10 @@ export const IPC = {
   renameAi: 'shell:rename-ai',
   /** shell → main: set (PNG data URL) or reset (null) an AI's logo. */
   setAiIcon: 'shell:set-ai-icon',
+  /** shell → main: read the quota dashboard (live, from each signed-in session). */
+  getUsage: 'shell:get-usage',
+  /** main → shell: open the usage dashboard (menu / shortcut). */
+  openUsage: 'shell:open-usage',
   /** main → shell: a browser sign-in is in progress / finished for an AI. */
   loginStatus: 'shell:login-status',
   /** shell → main: the overlay's finish / cancel / reopen buttons. */
@@ -118,6 +122,40 @@ export interface WebNotificationPayload {
   title: string
   body: string
   tag: string
+}
+
+/** One rate-limit window a provider reports (e.g. a 5-hour or weekly budget). */
+export interface UsageWindow {
+  /** Short label, e.g. "5 h", "Semaine", "30 jours". */
+  label: string
+  /** Portion of the window consumed, 0–100. */
+  usedPercent: number
+  /** When the window resets (epoch ms), or null if unknown. */
+  resetsAt: number | null
+}
+
+export type UsageStatus = 'ok' | 'unsupported' | 'logged-out' | 'error'
+
+/** The official usage/quota for one AI, read live from its signed-in session. */
+export interface AiUsage {
+  id: string
+  /** ok = numbers read; unsupported = provider exposes nothing; logged-out / error otherwise. */
+  status: UsageStatus
+  /** Plan name if known (e.g. "Pro", "Free"); null otherwise. */
+  plan: string | null
+  /** The rate-limit windows, most immediate first. */
+  windows: UsageWindow[]
+  /** Short human explanation for a non-ok status. */
+  detail: string | null
+  /** When these numbers were read (epoch ms), or null. */
+  fetchedAt: number | null
+}
+
+/** The quota dashboard, read on demand from the live AI views. */
+export interface UsageSnapshot {
+  generatedAt: number
+  /** Keyed by AI id. */
+  ais: Record<string, AiUsage>
 }
 
 export interface AiSettings {
@@ -234,6 +272,10 @@ export interface ShellApi {
   renameAi(id: string, name: string): Promise<MutateAiResult>
   /** Replace an AI's logo with a processed PNG (data URL), or reset it with null. */
   setAiIcon(id: string, dataUrl: string | null): Promise<MutateAiResult>
+  /** Read each AI's official quota live from its session; `force` skips the short cache. */
+  getUsage(force?: boolean): Promise<UsageSnapshot>
+  /** The menu / shortcut asked to open the usage dashboard. */
+  onOpenUsage(listener: () => void): () => void
   /** Browser sign-in progress, pushed from main. */
   onLoginStatus(listener: (status: LoginStatus) => void): () => void
   /** The login overlay's finish / cancel / reopen buttons. */

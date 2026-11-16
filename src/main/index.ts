@@ -15,6 +15,7 @@ import { attachShortcuts, type ShortcutHandlers } from './shortcuts'
 import { SkinManager, userSkinDir } from './skins'
 import { applyGlobalShortcut, applyLaunchAtLogin, launchUnsupported, startsHidden } from './startup'
 import { store } from './store'
+import { usage, setUsageRefocus } from './usage'
 import { applyUpdate, checkForUpdate, relaunchForUpdate, type UpdateInfo } from './updater'
 import { AppTray } from './tray'
 import { ViewManager, type AiView } from './views'
@@ -404,6 +405,11 @@ function registerIpc(): void {
     if (!ai || typeof message !== 'string') return
     ;(level === 'warn' ? console.warn : console.info)(`[adapter:${ai.id}] ${message.slice(0, 600)}`)
   })
+  const usageTargets = () =>
+    visibleAis().map((ai) => ({ id: ai.id, adapter: ai.adapter, wc: views?.views.get(ai.id)?.view.webContents }))
+  // The Muse reader borrows keyboard focus to open its Settings; hand focus back to the shell after.
+  setUsageRefocus(() => shellView?.webContents.focus())
+  ipcMain.handle(IPC.getUsage, (e, force) => (fromShell(e) ? usage.snapshot(usageTargets(), force === true) : null))
 
   // ---- Settings ----
   const settings = (): Settings => {
