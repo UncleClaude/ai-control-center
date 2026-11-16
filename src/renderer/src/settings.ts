@@ -834,7 +834,8 @@ export class SettingsPanel {
       { value: 'select-ai', label: 'Aller à une IA', needsAi: true },
       { value: 'toggle-window', label: 'Afficher / masquer la fenêtre', needsAi: false },
       { value: 'muse-call', label: 'Muse : démarrer / terminer l’appel', needsAi: true, museOnly: true },
-      { value: 'muse-mic', label: 'Muse : parler (micro on/off)', needsAi: true, museOnly: true },
+      { value: 'muse-mic', label: 'Muse : micro on/off (bascule)', needsAi: true, museOnly: true },
+      { value: 'muse-ptt', label: 'Muse : parler (maintenir — push-to-talk)', needsAi: true, museOnly: true },
     ]
     const museAis = s.ais.filter((a) => s.ai[a.id]?.adapter === 'muse')
     const save = (list: ShortcutBinding[]) => void this.patch({ shortcuts: list })
@@ -852,8 +853,8 @@ export class SettingsPanel {
       'p',
       'field-note',
       this.platform() === 'linux'
-        ? 'Raccourcis globaux (même fenêtre masquée). Sur Linux, utilise Ctrl ou Alt : la touche Super (Windows/logo) est réservée par KDE et ne déclenchera rien. Les actions Muse exigent que Muse reste chargé (activé dans la liste).'
-        : 'Raccourcis globaux, même fenêtre masquée. Utilise ⌘ ou ⌃ comme modificateur. Les actions Muse exigent que Muse reste chargé.',
+        ? 'Raccourcis globaux (même fenêtre masquée), via le portail Wayland : le système affiche une fenêtre pour confirmer/choisir la touche la première fois (la combinaison ci-dessus n’est qu’une suggestion). Le « maintenir » (push-to-talk) fonctionne ici. Les actions Muse exigent que Muse reste chargé.'
+        : 'Raccourcis globaux, même fenêtre masquée. Utilise ⌘ ou ⌃ comme modificateur. Le push-to-talk « maintenir » n’est pas encore disponible sur macOS (bascule en attendant). Les actions Muse exigent que Muse reste chargé.',
     )
 
     return section('Raccourcis', box(...(rows.length ? rows : [el('p', 'field-note', 'Aucun raccourci. Ajoutes-en un ci-dessous.')]), add), note)

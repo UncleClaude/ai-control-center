@@ -13,12 +13,13 @@ import { preloadPath } from './paths'
 import { chromeMajor, chromeUserAgent, firefoxIdentity } from './sessions'
 import { attachShortcuts, type ShortcutHandlers } from './shortcuts'
 import { SkinManager, userSkinDir } from './skins'
-import { applyGlobalShortcut, applyLaunchAtLogin, launchUnsupported, startsHidden } from './startup'
+import { applyLaunchAtLogin, launchUnsupported, startsHidden } from './startup'
 import { store } from './store'
 import { usage } from './usage'
 import { applyUpdate, checkForUpdate, relaunchForUpdate, type UpdateInfo } from './updater'
 import { AppTray } from './tray'
 import { ViewManager, type AiView } from './views'
+import { PortalShortcuts, type PortalShortcut } from './shortcuts-portal'
 import { createMainWindow, siteBackground } from './window'
 
 // Stable, space-free profile directory: ~/.config/ai-control-center, ~/Library/Application Support/ai-control-center
@@ -490,7 +491,7 @@ function registerIpc(): void {
         z.object({
           id: z.string().max(64),
           accelerator: z.string().max(80),
-          action: z.enum(['toggle-window', 'select-ai', 'muse-call', 'muse-mic']),
+          action: z.enum(['toggle-window', 'select-ai', 'muse-call', 'muse-mic', 'muse-ptt']),
           aiId: z.string().max(64).optional(),
         }),
       )
@@ -901,7 +902,7 @@ const handlers: ShortcutHandlers = {
   zoom: zoomActive,
 }
 
-// Muse voice-call controls: the buttons respond to a plain click (aria-labels checked 2026-11).
+// Muse voice-call + mic controls (aria-labels checked 2026-11; the buttons take a plain click).
 const MUSE_CALL_TOGGLE = `(() => {
   const btn = (re) => [].slice.call(document.querySelectorAll('button,[role=button]'))
     .find((e) => re.test((e.getAttribute('aria-label') || '').trim()));
@@ -918,41 +919,157 @@ const MUSE_MIC_TOGGLE = `(() => {
   m.click();
   return 'toggled';
 })()`
+const MUSE_MIC_ON = `(() => {
+  const b = [].slice.call(document.querySelectorAll('button,[role=button]'))
+    .find((e) => /^unmute$/i.test((e.getAttribute('aria-label') || '').trim()));
+  if (b) { b.click(); return 'on'; }
+  return 'noop';
+})()`
+const MUSE_MIC_OFF = `(() => {
+  const b = [].slice.call(document.querySelectorAll('button,[role=button]'))
+    .find((e) => /^mute$/i.test((e.getAttribute('aria-label') || '').trim()));
+  if (b) { b.click(); return 'off'; }
+  return 'noop';
+})()`
 
-/** Runs a user-defined shortcut's action. */
-function runShortcut(b: ShortcutBinding): void {
-  if (b.action === 'toggle-window') return toggleWindow()
-  if (b.action === 'select-ai') {
-    if (b.aiId && views?.views.has(b.aiId)) showWindow(b.aiId)
-    return
-  }
-  // Muse call / mic: run in the target view (muse adapter), loaded in the background.
-  const wc = b.aiId ? views?.views.get(b.aiId)?.view.webContents : undefined
-  if (!wc || wc.isDestroyed()) return
-  if (b.action === 'muse-call') {
-    showWindow(b.aiId) // bring Muse up so the call is visible
-    void wc.executeJavaScript(MUSE_CALL_TOGGLE, true).catch(() => {})
-  } else if (b.action === 'muse-mic') {
-    void wc.executeJavaScript(MUSE_MIC_TOGGLE, true).catch(() => {})
+let portalShortcuts: PortalShortcuts | null = null
+let portalBindings: ShortcutBinding[] = []
+let portalTimer: NodeJS.Timeout | null = null
+
+/** The target AI's webContents, if alive. */
+function museWc(aiId?: string) {
+  const wc = aiId ? views?.views.get(aiId)?.view.webContents : undefined
+  return wc && !wc.isDestroyed() ? wc : undefined
+}
+
+/** A shortcut was pressed / activated. */
+function runBinding(b: ShortcutBinding): void {
+  switch (b.action) {
+    case 'toggle-window':
+      return toggleWindow()
+    case 'select-ai':
+      if (b.aiId && views?.views.has(b.aiId)) showWindow(b.aiId)
+      return
+    case 'muse-call': {
+      const wc = museWc(b.aiId)
+      if (!wc) return
+      showWindow(b.aiId) // bring Muse up so the call is visible
+      void wc.executeJavaScript(MUSE_CALL_TOGGLE, true).catch(() => {})
+      return
+    }
+    case 'muse-mic': {
+      const wc = museWc(b.aiId)
+      if (wc) void wc.executeJavaScript(MUSE_MIC_TOGGLE, true).catch(() => {})
+      return
+    }
+    case 'muse-ptt': {
+      const wc = museWc(b.aiId)
+      // Press → mic ON where a release will follow (portal). Without a release (Electron), toggle so
+      // the key still does something useful.
+      if (wc) void wc.executeJavaScript(portalShortcuts ? MUSE_MIC_ON : MUSE_MIC_TOGGLE, true).catch(() => {})
+      return
+    }
   }
 }
 
-/** Registers the window toggle and every user-defined global shortcut, collecting failures. */
+/** A shortcut was released (portal only); only push-to-talk reacts, muting the mic. */
+function releaseBinding(b: ShortcutBinding): void {
+  if (b.action !== 'muse-ptt') return
+  const wc = museWc(b.aiId)
+  if (wc) void wc.executeJavaScript(MUSE_MIC_OFF, true).catch(() => {})
+}
+
+/** The window toggle (reserved id) plus every user shortcut that has a key. */
+function activeBindings(): ShortcutBinding[] {
+  const p = store.state.prefs
+  const list: ShortcutBinding[] = []
+  if (p.globalShortcut && p.globalShortcutKey) list.push({ id: '__toggle', accelerator: p.globalShortcutKey, action: 'toggle-window' })
+  for (const b of p.shortcuts) if (b.accelerator) list.push(b)
+  return list
+}
+
+function describeBinding(b: ShortcutBinding): string {
+  const name = b.aiId ? (views?.views.get(b.aiId)?.ai.name ?? 'IA') : ''
+  switch (b.action) {
+    case 'select-ai':
+      return `Aller à ${name}`
+    case 'muse-call':
+      return `${name} : démarrer / terminer l’appel`
+    case 'muse-mic':
+      return `${name} : micro (on/off)`
+    case 'muse-ptt':
+      return `${name} : parler (maintenir)`
+    default:
+      return 'Afficher / masquer la fenêtre'
+  }
+}
+
+/** Best-effort Electron accelerator → portal trigger; the user confirms it in the compositor dialog. */
+function toPortalTrigger(accel: string): string {
+  return accel
+    .split('+')
+    .map((p) =>
+      p === 'CommandOrControl' || p === 'Control' || p === 'Ctrl'
+        ? 'CTRL'
+        : p === 'Alt' || p === 'Option'
+          ? 'ALT'
+          : p === 'Shift'
+            ? 'SHIFT'
+            : p === 'Super' || p === 'Meta'
+              ? 'LOGO'
+              : p.length === 1
+                ? p.toLowerCase()
+                : p,
+    )
+    .join('+')
+}
+
+/** Wayland: (re)bind all shortcuts through the portal, debounced (each bind may prompt the compositor). */
+function syncPortal(): void {
+  if (!portalShortcuts) {
+    portalShortcuts = new PortalShortcuts()
+    portalShortcuts.on('activated', (id: string) => {
+      const b = portalBindings.find((x) => x.id === id)
+      if (b) runBinding(b)
+    })
+    portalShortcuts.on('deactivated', (id: string) => {
+      const b = portalBindings.find((x) => x.id === id)
+      if (b) releaseBinding(b)
+    })
+  }
+  portalBindings = activeBindings()
+  if (portalTimer) clearTimeout(portalTimer)
+  portalTimer = setTimeout(() => {
+    const shortcuts: PortalShortcut[] = portalBindings.map((b) => ({
+      id: b.id,
+      description: describeBinding(b),
+      preferredTrigger: toPortalTrigger(b.accelerator),
+    }))
+    void portalShortcuts!.bind(shortcuts)
+  }, 1200)
+}
+
+/** Registers every global shortcut. Wayland uses the XDG portal (Electron's own API is dead there). */
 function registerGlobalShortcut(): void {
-  globalShortcut.unregisterAll()
   shortcutError = null
   shortcutErrors = {}
-  const p = store.state.prefs
-  shortcutError = applyGlobalShortcut(p.globalShortcut, p.globalShortcutKey, toggleWindow)
-  if (shortcutError) console.warn(`[shortcut] ${p.globalShortcutKey} : ${shortcutError}`)
-  for (const b of p.shortcuts) {
-    if (!b.accelerator) continue
+  globalShortcut.unregisterAll()
+  if (PortalShortcuts.available()) {
+    syncPortal()
+    return
+  }
+  for (const b of activeBindings()) {
     try {
-      if (!globalShortcut.register(b.accelerator, () => runShortcut(b))) shortcutErrors[b.id] = 'déjà utilisé ou refusé'
+      if (!globalShortcut.register(b.accelerator, () => runBinding(b))) {
+        if (b.id === '__toggle') shortcutError = 'déjà utilisé ou refusé'
+        else shortcutErrors[b.id] = 'déjà utilisé ou refusé'
+      }
     } catch {
-      shortcutErrors[b.id] = 'combinaison invalide'
+      if (b.id === '__toggle') shortcutError = 'combinaison invalide'
+      else shortcutErrors[b.id] = 'combinaison invalide'
     }
-    if (shortcutErrors[b.id]) console.warn(`[shortcut] ${b.accelerator} : ${shortcutErrors[b.id]}`)
+    const err = b.id === '__toggle' ? shortcutError : shortcutErrors[b.id]
+    if (err) console.warn(`[shortcut] ${b.accelerator} : ${err}`)
   }
 }
 

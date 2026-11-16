@@ -130,6 +130,7 @@ export type ShortcutAction =
   | 'select-ai' // bring up a given AI
   | 'muse-call' // start / end Muse's voice call
   | 'muse-mic' // toggle Muse's microphone (talk / stop) during a call
+  | 'muse-ptt' // push-to-talk: mic on while held, off on release (hold needs the Wayland portal)
 
 /** One configurable global shortcut. */
 export interface ShortcutBinding {
