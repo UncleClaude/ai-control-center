@@ -9,7 +9,7 @@ const api: ShellApi = {
     return () => ipcRenderer.off(IPC.state, wrapped)
   },
   onPlaySound: (listener) => {
-    const wrapped = () => listener()
+    const wrapped = (_e: unknown, sound?: Parameters<typeof listener>[0]) => listener(sound ?? 'chime')
     ipcRenderer.on(IPC.playSound, wrapped)
     return () => ipcRenderer.off(IPC.playSound, wrapped)
   },

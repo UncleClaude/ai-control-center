@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { app, globalShortcut, ipcMain, nativeTheme, screen, session, shell, WebContentsView, type BaseWindow, type IpcMainEvent } from 'electron'
 import { z } from 'zod'
-import { IPC, type AddAiSpec, type AiPublic, type GlassPreference, type LoginState, type LoginStatus, type Platform, type Settings, type ShellState, type ShortcutBinding, type SiteRole } from '../shared/protocol'
+import { IPC, type AddAiSpec, type AiPublic, type GlassPreference, type LoginState, type LoginStatus, type Platform, type Settings, type ShellState, type ShortcutBinding, type SiteRole, type SoundType } from '../shared/protocol'
 import { detectBrowsers, hasSession, macNeedsFullDiskAccess, probe, readCookies, type BrowserProfile } from './browser-cookies'
 import { builtInIconName, configFilePath, customIconDir, isBuiltInId, loadAiConfig, loadRawConfig, materializeAi, saveRawConfig, type AiConfig, type RawAi } from './config'
 import { detectGlass, type GlassInfo } from './glass'
@@ -915,9 +915,10 @@ const MUSE_CALL_TOGGLE = `(() => {
 const MUSE_MIC_TOGGLE = `(() => {
   const m = [].slice.call(document.querySelectorAll('button,[role=button]'))
     .find((e) => /^(mute|unmute)$/i.test((e.getAttribute('aria-label') || '').trim()));
-  if (!m) return 'not-in-call';
+  if (!m) return 'noop';
+  const wasMuted = /^unmute$/i.test((m.getAttribute('aria-label') || '').trim());
   m.click();
-  return 'toggled';
+  return wasMuted ? 'on' : 'off';
 })()`
 const MUSE_MIC_ON = `(() => {
   const b = [].slice.call(document.querySelectorAll('button,[role=button]'))
@@ -942,6 +943,22 @@ function museWc(aiId?: string) {
   return wc && !wc.isDestroyed() ? wc : undefined
 }
 
+/** Plays a synthesised sound in the shell (mic on/off feedback, notification chime). */
+function playSound(sound: SoundType): void {
+  shellView?.webContents.send(IPC.playSound, sound)
+}
+
+/** Runs the Muse mic-toggle and plays the sound matching the resulting state. */
+function toggleMuseMic(wc: Electron.WebContents): void {
+  void wc
+    .executeJavaScript(MUSE_MIC_TOGGLE, true)
+    .then((r) => {
+      if (r === 'on') playSound('mic-on')
+      else if (r === 'off') playSound('mic-off')
+    })
+    .catch(() => {})
+}
+
 /** A shortcut was pressed / activated. */
 function runBinding(b: ShortcutBinding): void {
   switch (b.action) {
@@ -959,14 +976,19 @@ function runBinding(b: ShortcutBinding): void {
     }
     case 'muse-mic': {
       const wc = museWc(b.aiId)
-      if (wc) void wc.executeJavaScript(MUSE_MIC_TOGGLE, true).catch(() => {})
+      if (wc) toggleMuseMic(wc)
       return
     }
     case 'muse-ptt': {
       const wc = museWc(b.aiId)
-      // Press → mic ON where a release will follow (portal). Without a release (Electron), toggle so
-      // the key still does something useful.
-      if (wc) void wc.executeJavaScript(portalShortcuts ? MUSE_MIC_ON : MUSE_MIC_TOGGLE, true).catch(() => {})
+      if (!wc) return
+      // With a release to follow (portal): press opens the mic. Without one (Electron): toggle.
+      if (PortalShortcuts.available()) {
+        void wc.executeJavaScript(MUSE_MIC_ON, true).catch(() => {})
+        playSound('mic-on')
+      } else {
+        toggleMuseMic(wc)
+      }
       return
     }
   }
@@ -976,7 +998,9 @@ function runBinding(b: ShortcutBinding): void {
 function releaseBinding(b: ShortcutBinding): void {
   if (b.action !== 'muse-ptt') return
   const wc = museWc(b.aiId)
-  if (wc) void wc.executeJavaScript(MUSE_MIC_OFF, true).catch(() => {})
+  if (!wc) return
+  void wc.executeJavaScript(MUSE_MIC_OFF, true).catch(() => {})
+  playSound('mic-off')
 }
 
 /** The window toggle (reserved id) plus every user shortcut that has a key. */
@@ -1054,6 +1078,7 @@ function registerGlobalShortcut(): void {
   shortcutError = null
   shortcutErrors = {}
   globalShortcut.unregisterAll()
+  console.info(`[shortcut] register; portal=${PortalShortcuts.available()} bindings=${activeBindings().length}`)
   if (PortalShortcuts.available()) {
     syncPortal()
     return

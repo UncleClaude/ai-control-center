@@ -2,7 +2,7 @@ import type { ShellState } from '../../shared/protocol'
 import { icons } from './icons'
 import { LoginOverlay } from './login-overlay'
 import { SettingsPanel } from './settings'
-import { playChime } from './sound'
+import { playChime, playMicOff, playMicOn } from './sound'
 import { UpdatePrompt } from './update-prompt'
 import { UsagePanel } from './usage'
 import './styles/tokens.css'
@@ -254,7 +254,7 @@ window.addEventListener('resize', () => {
 })
 
 api.onState(render)
-api.onPlaySound(playChime)
+api.onPlaySound((sound) => (sound === 'mic-on' ? playMicOn() : sound === 'mic-off' ? playMicOff() : playChime()))
 void api.getState().then((s) => {
   if (s) render(s)
   reportRect()

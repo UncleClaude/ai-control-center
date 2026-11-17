@@ -7,6 +7,8 @@ export type GlassMode = 'vibrancy' | 'blur' | 'tint' | 'solid'
 export type GlassPreference = 'auto' | 'glass' | 'solid'
 export type ThemePreference = 'system' | 'light' | 'dark'
 export type AiAction = 'clear-cache' | 'sign-out'
+/** Which synthesised sound the shell should play. */
+export type SoundType = 'chime' | 'mic-on' | 'mic-off'
 
 export interface AiPublic {
   id: string
@@ -281,7 +283,7 @@ export type SettingsPatch = Partial<
 export interface ShellApi {
   getState(): Promise<ShellState>
   onState(listener: (state: ShellState) => void): () => void
-  onPlaySound(listener: () => void): () => void
+  onPlaySound(listener: (sound: SoundType) => void): () => void
   onOpenSettings(listener: () => void): () => void
   setSettingsVisible(visible: boolean): void
   getSettings(): Promise<Settings>
