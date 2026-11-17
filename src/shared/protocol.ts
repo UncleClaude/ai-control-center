@@ -81,6 +81,23 @@ export const IPC = {
   getUsage: 'shell:get-usage',
   /** main → shell: open the usage dashboard (menu / shortcut). */
   openUsage: 'shell:open-usage',
+  /** shell → main: terminal look, read from the user's Alacritty config. */
+  termConfig: 'term:config',
+  /** shell → main: start the shell (if needed) at this size. */
+  termStart: 'term:start',
+  /** shell → main: keystrokes / pasted text for the shell. */
+  termInput: 'term:input',
+  termResize: 'term:resize',
+  /** shell → main: the terminal has keyboard focus (app shortcuts step aside). */
+  termFocus: 'term:focus',
+  /** main → shell: output from the shell. */
+  termData: 'term:data',
+  /** main → shell: the shell exited (exit code). */
+  termExit: 'term:exit',
+  /** main → shell: Ctrl+` pressed anywhere — show / hide the terminal. */
+  toggleTerminal: 'shell:toggle-terminal',
+  clipboardRead: 'shell:clipboard-read',
+  clipboardWrite: 'shell:clipboard-write',
   /** main → shell: a browser sign-in is in progress / finished for an AI. */
   loginStatus: 'shell:login-status',
   /** shell → main: the overlay's finish / cancel / reopen buttons. */
@@ -143,6 +160,30 @@ export interface ShortcutBinding {
   /** Target AI for 'select-ai' and the Muse actions. */
   aiId?: string
 }
+
+/** Look of the built-in terminal, mapped from the user's alacritty.toml (or Alacritty's defaults). */
+export interface TerminalConfig {
+  fontFamily: string
+  /** Extra families for glyphs the main font lacks (Nerd Font icons). */
+  fontFallback: string[]
+  /** CSS pixels. */
+  fontSize: number
+  scrollback: number
+  cursorStyle: 'block' | 'underline' | 'bar'
+  cursorBlink: boolean
+  cursorInactiveStyle: 'outline' | 'block' | 'bar' | 'underline' | 'none'
+  /** Background opacity, 0–1 (window.opacity). */
+  opacity: number
+  boldBright: boolean
+  /** selection.save_to_clipboard. */
+  copyOnSelect: boolean
+  /** xterm.js ITheme keys (background is opaque here; opacity is applied by the shell). */
+  theme: Record<string, string>
+  /** The config file used, or null for defaults. */
+  source: string | null
+}
+
+export type ClipboardKind = 'clipboard' | 'selection'
 
 /** One rate-limit window a provider reports (e.g. a 5-hour or weekly budget). */
 export interface UsageWindow {
@@ -303,6 +344,18 @@ export interface ShellApi {
   getUsage(force?: boolean): Promise<UsageSnapshot>
   /** The menu / shortcut asked to open the usage dashboard. */
   onOpenUsage(listener: () => void): () => void
+  /** Built-in terminal. */
+  termConfig(): Promise<TerminalConfig>
+  /** Starts the shell if it isn't running; resolves false if no pty is available. */
+  termStart(cols: number, rows: number): Promise<boolean>
+  termInput(data: string): void
+  termResize(cols: number, rows: number): void
+  termFocus(focused: boolean): void
+  onTermData(listener: (data: string) => void): () => void
+  onTermExit(listener: (code: number) => void): () => void
+  onToggleTerminal(listener: () => void): () => void
+  clipboardRead(kind?: ClipboardKind): Promise<string>
+  clipboardWrite(text: string, kind?: ClipboardKind): void
   /** Browser sign-in progress, pushed from main. */
   onLoginStatus(listener: (status: LoginStatus) => void): () => void
   /** The login overlay's finish / cancel / reopen buttons. */

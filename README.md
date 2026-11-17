@@ -11,6 +11,7 @@ A desktop app that brings **Muse (Meta)**, **Claude** and **ChatGPT** together i
 - **Native notifications** when an AI is done or **needs you** (a question or an approval). The rail icon breathes until you look, and a click brings you back to the right conversation.
 - **Usage dashboard** (chart icon in the rail): each AI's **official quota**, read live from its signed-in session — Claude's 5-hour and weekly limits, ChatGPT's plan + rate-limit window, Muse's weekly plan + bonus tokens — each with a progress bar and reset time. Because it comes from your account, it's the same on every machine. Read-only, nothing leaves your machine; services that expose no quota (self-hosted / custom ones) simply show "non disponible". Muse has no usage API, so the app reads it by briefly opening Muse's Settings in the background (the view is hidden behind the dashboard, so you never see it); it can break if Meta changes that screen.
 - **Liquid Glass UI.** Native vibrancy on macOS, compositor blur on Linux, a clean tinted fallback otherwise. Each site is reskinned in its AI's colour: warm orange for Claude, blue for Muse, near-black for ChatGPT.
+- **Built-in terminal** (Mod+` or the terminal icon in the rail): a real shell (your login shell, e.g. fish) in an xterm.js panel styled from your **Alacritty** config (`~/.config/alacritty/alacritty.toml`, imports included): colours, font, size, cursor, opacity, scrollback, copy-on-select. Nerd Font icons work when a Nerd Font is installed. The shell keeps running while the panel is hidden. Copy / paste: Ctrl+Shift+C / V (Cmd+C / V on macOS), Linux primary selection supported; Mod+= / - / 0 zoom the terminal.
 - **Custom global shortcuts** (Réglages → Raccourcis): bind keys to switch to an AI, show/hide the window, or drive Muse's voice call — **start/end the call** and a **talk (mic on/off)** key. Muse has no API for this, so the call/mic actions click Muse's own controls in the background.
 - **System tray icon**: StatusNotifierItem on Linux, a template icon on macOS.
 - **Lots of settings**: theme, tint, rail order, per-AI colour and zoom, do not disturb, launch at login, a global shortcut…
@@ -108,6 +109,8 @@ Building the `.dmg` needs the Xcode Command Line Tools (`xcode-select --install`
 npm install
 npm run dev
 ```
+
+`node-pty` (the terminal) is a native module: if the terminal says the pty module is unavailable, rebuild it for Electron with `npx electron-builder install-app-deps` (needs a C++ toolchain and Python).
 
 The main process and the preloads are rebuilt at every launch, and the app's own UI (rail, settings) hot-reloads. After changing `src/main`, `src/preload`, `src/adapters` or `src/skins`, run `npm run dev` again: the new instance replaces the running one.
 
@@ -307,6 +310,7 @@ Behaviour:
 | Alt+← / Alt+→ (Linux) | back / forward (handy on AZERTY, where [ and ] need AltGr) |
 | Mod+= / Mod+- / Mod+0 | zoom in / out / reset for the active AI (remembered per AI) |
 | Mod+, | settings |
+| Mod+` | show / hide the terminal (inside it, every other key goes to the shell, except Mod+1…9) |
 | Ctrl+Q (Linux), Cmd+Q (macOS) | quit |
 | F12 / Mod+Shift+I | developer tools for the active view |
 | Esc | close the settings |

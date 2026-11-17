@@ -4,6 +4,7 @@ import { LoginOverlay } from './login-overlay'
 import { SettingsPanel } from './settings'
 import { playChime, playMicOff, playMicOn } from './sound'
 import { UpdatePrompt } from './update-prompt'
+import { TerminalPanel } from './terminal'
 import { UsagePanel } from './usage'
 import './styles/tokens.css'
 import './styles/app.css'
@@ -21,6 +22,7 @@ const maxBtn = $<HTMLButtonElement>('wc-max')
 const railToggle = $<HTMLButtonElement>('rail-toggle')
 const settingsBtn = $<HTMLButtonElement>('rail-settings')
 const usageBtn = $<HTMLButtonElement>('rail-usage')
+const terminalBtn = $<HTMLButtonElement>('rail-terminal')
 
 backBtn.title = 'Précédent'
 forwardBtn.title = 'Suivant'
@@ -53,22 +55,44 @@ const usage = new UsagePanel(
     placeIndicator()
   },
 )
-// One panel at a time: opening either closes the other.
+terminalBtn.innerHTML = icons.terminal
+terminalBtn.title = 'Terminal   Ctrl+`'
+const terminal = new TerminalPanel(
+  $('terminal'),
+  () => state?.platform ?? 'linux',
+  (open) => {
+    root.classList.toggle('terminal-open', open)
+    terminalBtn.classList.toggle('active', open)
+    placeIndicator()
+  },
+)
+/** One panel at a time: close every panel except the one about to open. */
+function hidePanels(except?: { hide(): void }): void {
+  for (const p of [settings, usage, terminal]) if (p !== except) p.hide()
+}
 settingsBtn.addEventListener('click', () => {
-  usage.hide()
+  hidePanels(settings)
   settings.toggle()
 })
 usageBtn.addEventListener('click', () => {
-  settings.hide()
+  hidePanels(usage)
   usage.toggle()
 })
+terminalBtn.addEventListener('click', () => {
+  hidePanels(terminal)
+  terminal.toggle()
+})
 api.onOpenSettings(() => {
-  usage.hide()
+  hidePanels(settings)
   void settings.show()
 })
 api.onOpenUsage(() => {
-  settings.hide()
+  hidePanels(usage)
   void usage.show()
+})
+api.onToggleTerminal(() => {
+  hidePanels(terminal)
+  terminal.toggle()
 })
 
 // Browser sign-in overlay (shown over the card while a Google/Apple login runs in the real browser).
@@ -77,10 +101,7 @@ new LoginOverlay(
   $('login-overlay'),
   (id) => state?.ais.find((a) => a.id === id),
   (shown) => {
-    if (shown) {
-      settings.hide()
-      usage.hide()
-    }
+    if (shown) hidePanels()
     root.classList.toggle('login-open', shown)
   },
 )
@@ -90,10 +111,7 @@ new UpdatePrompt(
   $('update-overlay'),
   () => state?.version ?? '',
   (hidden) => {
-    if (hidden) {
-      settings.hide()
-      usage.hide()
-    }
+    if (hidden) hidePanels()
     api.setSettingsVisible(hidden)
   },
 )
@@ -167,8 +185,7 @@ function buildRail(s: ShellState): void {
 
     btn.append(iconWrap, label)
     btn.addEventListener('click', () => {
-      settings.hide()
-      usage.hide()
+      hidePanels()
       api.select(ai.id)
     })
     li.append(btn)
@@ -179,7 +196,7 @@ function buildRail(s: ShellState): void {
 
 /** Slides the glass highlight under the active icon. */
 function placeIndicator(): void {
-  const btn = state?.activeId && !settings.isOpen && !usage.isOpen ? buttons.get(state.activeId) : undefined
+  const btn = state?.activeId && !settings.isOpen && !usage.isOpen && !terminal.isOpen ? buttons.get(state.activeId) : undefined
   if (!btn) {
     indicator.style.opacity = '0'
     return
@@ -191,8 +208,7 @@ function placeIndicator(): void {
 
 function render(s: ShellState): void {
   if (state && s.activeId !== state.activeId) {
-    settings.hide()
-    usage.hide()
+    hidePanels()
   }
   const structural = !state || state.ais.map((a) => a.id).join() !== s.ais.map((a) => a.id).join()
   const first = !state

@@ -1030,6 +1030,8 @@ export class SettingsPanel {
       [mac ? '⌘[  ·  ⌘]' : 'Ctrl+[  ·  Ctrl+]  ·  Alt+←/→', 'Précédent / suivant'],
       [`${m}=  ·  ${m}-  ·  ${m}0`, 'Zoom avant / arrière / taille réelle de l’IA affichée'],
       [`${m},`, 'Réglages'],
+      [`${m}\``, 'Terminal (thème et police d’Alacritty)'],
+      [mac ? '⌘C  ·  ⌘V' : 'Ctrl+Maj+C  ·  Ctrl+Maj+V', 'Copier / coller dans le terminal'],
       [mac ? '⌥⌘I' : 'F12', 'Outils de développement du site'],
       [mac ? '⌘Q' : 'Ctrl+Q', 'Quitter'],
     ]

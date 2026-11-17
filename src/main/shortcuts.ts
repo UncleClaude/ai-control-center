@@ -9,6 +9,8 @@ export interface ShortcutHandlers {
   openSettings(): void
   /** +1 / -1 step, 0 = reset. */
   zoom(step: 1 | -1 | 0): void
+  /** Show / hide the built-in terminal. */
+  toggleTerminal(): void
 }
 
 const isMac = process.platform === 'darwin'
@@ -17,12 +19,28 @@ const isMac = process.platform === 'darwin'
  * App shortcuts, caught before the page sees them, in every view (shell and sites).
  * Physical key codes are used so they work on AZERTY too (Ctrl+1 is "&" there).
  */
-export function attachShortcuts(contents: WebContents, h: ShortcutHandlers): void {
+export function attachShortcuts(contents: WebContents, h: ShortcutHandlers, terminalFocused?: () => boolean): void {
   contents.on('before-input-event', (event, input) => {
     if (input.type !== 'keyDown') return
     const mod = isMac ? input.meta : input.control
     const key = input.key
     const code = input.code
+
+    // Ctrl+` (⌘` on macOS) toggles the terminal from anywhere.
+    if (mod && !input.shift && !input.alt && code === 'Backquote') {
+      h.toggleTerminal()
+      event.preventDefault()
+      return
+    }
+    // The terminal owns the keyboard: Ctrl+R, Ctrl+[ (Esc), Ctrl+Q, Ctrl+=… must reach the shell.
+    // Only AI switching (Ctrl+1…9) stays global.
+    if (terminalFocused?.()) {
+      if (mod && !input.shift && /^Digit[1-9]$/.test(code)) {
+        h.selectIndex(Number(code.slice(5)) - 1)
+        event.preventDefault()
+      }
+      return
+    }
 
     let handled = true
     if (mod && !input.shift && /^Digit[1-9]$/.test(code)) h.selectIndex(Number(code.slice(5)) - 1)

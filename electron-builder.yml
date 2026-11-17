@@ -12,6 +12,9 @@ extraResources:
   - from: resources
     to: resources
 asar: true
+# node-pty is native: its .node binaries (and macOS spawn-helper) must live outside the asar.
+asarUnpack:
+  - node_modules/node-pty/**
 
 linux:
   # Linux keeps the lowercase executable / WM class (desktop entry, tray, blur rules rely on it);

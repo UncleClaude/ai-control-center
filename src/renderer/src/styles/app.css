@@ -1425,3 +1425,72 @@ img {
     max-width: none;
   }
 }
+
+/* ---------- Built-in terminal ---------- */
+
+.term-panel {
+  position: absolute;
+  inset: 0 var(--gutter) var(--gutter) var(--gutter);
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--card-radius);
+  overflow: hidden;
+  /* Alacritty's background at its window.opacity; the window glass shows through. */
+  background: var(--term-bg, #181818);
+  box-shadow: var(--card-shadow);
+  opacity: 0;
+  transform: scale(0.985) translateY(4px);
+  transition:
+    opacity 0.22s var(--ease-out),
+    transform 0.32s var(--ease-glide);
+}
+.term-panel[hidden] {
+  display: none;
+}
+.term-panel.visible {
+  opacity: 1;
+  transform: none;
+}
+.terminal-open .card {
+  opacity: 0;
+}
+.term-header {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: 34px;
+  padding: 0 8px 0 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 12px;
+  user-select: none;
+}
+.term-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.term-header .icon-btn {
+  color: rgba(255, 255, 255, 0.6);
+}
+.term-header .icon-btn svg {
+  width: 13px;
+  height: 13px;
+}
+.term-host {
+  flex: 1;
+  min-height: 0;
+  padding: 8px 4px 6px 12px;
+}
+.term-host .xterm {
+  height: 100%;
+}
+.term-host .xterm-viewport {
+  scrollbar-width: thin;
+  /* xterm falls back to opaque black for a fully transparent theme background; the panel already
+     paints the Alacritty colour at its opacity. */
+  background-color: transparent !important;
+}

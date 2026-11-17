@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { app, globalShortcut, ipcMain, nativeTheme, screen, session, shell, WebContentsView, type BaseWindow, type IpcMainEvent } from 'electron'
+import { app, clipboard, globalShortcut, ipcMain, nativeTheme, screen, session, shell, WebContentsView, type BaseWindow, type IpcMainEvent } from 'electron'
 import { z } from 'zod'
 import { IPC, type AddAiSpec, type AiPublic, type GlassPreference, type LoginState, type LoginStatus, type Platform, type Settings, type ShellState, type ShortcutBinding, type SiteRole, type SoundType } from '../shared/protocol'
 import { detectBrowsers, hasSession, macNeedsFullDiskAccess, probe, readCookies, type BrowserProfile } from './browser-cookies'
@@ -20,6 +20,7 @@ import { applyUpdate, checkForUpdate, relaunchForUpdate, type UpdateInfo } from 
 import { AppTray } from './tray'
 import { ViewManager, type AiView } from './views'
 import { PortalShortcuts, type PortalShortcut } from './shortcuts-portal'
+import { TerminalManager, terminalConfig } from './terminal'
 import { createMainWindow, siteBackground } from './window'
 
 // Stable, space-free profile directory: ~/.config/ai-control-center, ~/Library/Application Support/ai-control-center
@@ -41,6 +42,13 @@ let quitting = false
 let badges: Record<string, number> = {}
 let shortcutError: string | null = null
 let shortcutErrors: Record<string, string> = {}
+/** The built-in terminal's shell; output goes to the shell window. */
+const terminal = new TerminalManager(
+  (data) => shellView?.webContents.send(IPC.termData, data),
+  (code) => shellView?.webContents.send(IPC.termExit, code),
+)
+/** While true, app shortcuts in the shell window step aside for the terminal. */
+let terminalFocused = false
 /** The newest release found by a check, kept so applyUpdate knows what to download. */
 let pendingUpdate: UpdateInfo | null = null
 
@@ -410,6 +418,30 @@ function registerIpc(): void {
   const usageTargets = () =>
     visibleAis().map((ai) => ({ id: ai.id, adapter: ai.adapter, wc: views?.views.get(ai.id)?.view.webContents }))
   ipcMain.handle(IPC.getUsage, (e, force) => (fromShell(e) ? usage.snapshot(usageTargets(), force === true) : null))
+
+  // ---- Terminal ----
+  const Size = z.number().int().min(1).max(2000)
+  const Kind = z.enum(['clipboard', 'selection']).optional()
+  // The primary selection only exists on Linux (clipboard.selection); elsewhere use the clipboard.
+  const clipFor = (k?: 'clipboard' | 'selection') => (k === 'selection' && process.platform === 'linux' && clipboard.selection ? clipboard.selection : clipboard)
+  ipcMain.handle(IPC.termConfig, (e) => (fromShell(e) ? terminalConfig() : null))
+  ipcMain.handle(IPC.termStart, (e, cols, rows) => (fromShell(e) ? terminal.start(Size.parse(cols), Size.parse(rows)) : false))
+  ipcMain.on(IPC.termInput, (e, data) => {
+    if (fromShell(e) && typeof data === 'string' && data.length <= 2_000_000) terminal.write(data)
+  })
+  ipcMain.on(IPC.termResize, (e, cols, rows) => {
+    if (fromShell(e)) terminal.resize(Size.parse(cols), Size.parse(rows))
+  })
+  ipcMain.on(IPC.termFocus, (e, focused) => {
+    if (fromShell(e)) terminalFocused = focused === true
+  })
+  ipcMain.handle(IPC.clipboardRead, async (e, kind) => (fromShell(e) ? clipFor(Kind.parse(kind)).readText() : ''))
+  ipcMain.on(IPC.clipboardWrite, (e, text, kind) => {
+    if (fromShell(e) && typeof text === 'string' && text.length <= 5_000_000)
+      void clipFor(Kind.parse(kind))
+        .writeText(text)
+        .catch(() => {})
+  })
 
   // ---- Settings ----
   const settings = (): Settings => {
@@ -900,6 +932,10 @@ const handlers: ShortcutHandlers = {
     shellView?.webContents.send(IPC.openSettings)
   },
   zoom: zoomActive,
+  toggleTerminal: () => {
+    showWindow()
+    shellView?.webContents.send(IPC.toggleTerminal)
+  },
 }
 
 // Muse voice-call + mic controls (aria-labels checked 2026-11; the buttons take a plain click).
@@ -1134,7 +1170,7 @@ function createWindow(): void {
   })
 
   installMenu(visibleAis(), handlers)
-  attachShortcuts(shellView.webContents, handlers)
+  attachShortcuts(shellView.webContents, handlers, () => terminalFocused)
   for (const e of views.views.values()) attachShortcuts(e.view.webContents, handlers)
   views.on('changed', () => {
     pushState()
@@ -1269,6 +1305,7 @@ function startup(): void {
   app.on('will-quit', () => globalShortcut.unregisterAll())
   app.on('before-quit', () => {
     quitting = true
+    terminal.kill()
     store.flush()
   })
   app.on('window-all-closed', () => {
